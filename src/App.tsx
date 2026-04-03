@@ -1,24 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import * as api from './api/db';
-import { motion } from 'motion/react';
+import * as auth from './api/auth';
+import { motion, AnimatePresence } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Tooltip, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import { 
   Map, List, Users, LogOut, MapPin, CheckCircle, 
   ChevronRight, Search, Filter, Plus, FileText, 
   Calendar, Activity, Camera, HeartHandshake,
-  Globe, Shield, Database, ArrowRight, Printer, AlertCircle
+  Globe, Shield, Database, ArrowRight, Printer, AlertCircle, Save
 } from 'lucide-react';
 import { NewCemeteryScreen } from './components/NewCemeteryScreen';
 
 // ─── STAGES (estático, no viene de la DB) ───────────────────────────────────
 const stages = [
-  { id: 0, name: "Relevado", icon: MapPin, desc: "Identificación y geolocalización inicial.", color: "var(--color-fs-gray)" },
-  { id: 1, name: "Contacto", icon: Users, desc: "Primer acercamiento con la administración.", color: "var(--color-fs-blue)" },
-  { id: 2, name: "Registros", icon: FileText, desc: "Evaluación del volumen y estado de libros.", color: "var(--color-fs-orange)" },
-  { id: 3, name: "Cita Inst.", icon: Calendar, desc: "Reunión formal para acordar digitalización.", color: "var(--color-fs-purple)" },
-  { id: 4, name: "Digitalizado", icon: Camera, desc: "Captura de imágenes completada.", color: "var(--color-fs-teal)" },
-  { id: 5, name: "Postventa", icon: HeartHandshake, desc: "Entrega de DRR y capacitación.", color: "var(--color-fs-green)" },
+  { id: 0, name: "Relevado E0", icon: MapPin, desc: "Identificación y geolocalización inicial.", color: "var(--color-fs-gray)" },
+  { id: 1, name: "Contacto E1", icon: Users, desc: "Primer acercamiento con la administración.", color: "var(--color-fs-blue)" },
+  { id: 2, name: "Registros E2", icon: FileText, desc: "Evaluación del volumen y estado de libros.", color: "var(--color-fs-orange)" },
+  { id: 3, name: "Cita Inst. E3", icon: Calendar, desc: "Reunión formal para acordar digitalización.", color: "var(--color-fs-purple)" },
+  { id: 4, name: "Digitalizado E4", icon: Camera, desc: "Captura de imágenes completada.", color: "var(--color-fs-teal)" },
+  { id: 5, name: "Postventa E5", icon: HeartHandshake, desc: "Entrega de DRR y capacitación.", color: "var(--color-fs-green)" },
+];
+
+const COUNTRY_DATA = [
+  { name: "Argentina", prefix: "+54" },
+  { name: "Chile", prefix: "+56" },
+  { name: "Uruguay", prefix: "+598" },
+  { name: "Paraguay", prefix: "+595" },
+  { name: "Bolivia", prefix: "+591" },
+  { name: "Perú", prefix: "+51" },
+  { name: "Brasil", prefix: "+55" },
+  { name: "Colombia", prefix: "+57" },
+  { name: "Ecuador", prefix: "+593" },
 ];
 
 // Custom Leaflet Icon matching FamilySearch green
@@ -31,13 +44,13 @@ const getCustomIcon = (color: string) => new L.DivIcon({
 
 // --- COMPONENTS ---
 
-const Stepper = ({ currentStage }: { currentStage: number }) => {
+const Stepper = ({ currentStage, onStageClick }: { currentStage: number, onStageClick?: (stage: number) => void }) => {
   return (
     <div className="w-full overflow-x-auto hide-scrollbar pb-4">
       <div className="min-w-[600px] flex items-center justify-between relative px-4">
         {/* Background Line */}
         <div className="absolute left-8 right-8 top-5 h-1 bg-[var(--color-fs-border)] z-0 rounded-full"></div>
-        {/* Active Line */}
+        {/* Active Line (up to current active stage in UI) */}
         <div 
           className="absolute left-8 top-5 h-1 bg-[var(--color-primary)] z-0 transition-all duration-500 rounded-full" 
           style={{ width: `calc(${(currentStage / (stages.length - 1)) * 100}% - 2rem)` }}
@@ -49,9 +62,13 @@ const Stepper = ({ currentStage }: { currentStage: number }) => {
           const Icon = stage.icon;
 
           return (
-            <div key={stage.id} className="relative z-10 flex flex-col items-center w-24">
+            <div 
+              key={stage.id} 
+              className={`relative z-10 flex flex-col items-center w-24 ${onStageClick ? 'cursor-pointer group' : ''}`}
+              onClick={() => onStageClick && onStageClick(idx)}
+            >
               <div className={`w-10 h-10 rounded-full flex items-center justify-center border-4 transition-all duration-300 ${
-                isActive ? 'bg-[var(--color-fs-bg)] scale-110 shadow-md' : 
+                isActive ? 'bg-[var(--color-fs-bg)] scale-110 shadow-md ring-4 ring-[var(--color-primary-50)]' : 
                 isCompleted ? 'text-white' : 
                 'bg-[var(--color-fs-bg)] border-[var(--color-fs-border)] text-[var(--color-fs-text-secondary)]'
               }`}
@@ -63,10 +80,10 @@ const Stepper = ({ currentStage }: { currentStage: number }) => {
                 {isCompleted ? <CheckCircle size={18} /> : <Icon size={18} />}
               </div>
               <div className="mt-3 text-center">
-                <span className={`text-xs font-bold block ${
+                <span className={`text-[10px] font-bold block transition-colors ${
                   isActive ? 'text-[var(--color-primary)]' : 
                   isCompleted ? 'text-[var(--color-fs-text)]' : 'text-[var(--color-fs-text-secondary)]'
-                }`}>
+                } group-hover:text-[var(--color-primary)]`}>
                   {stage.name}
                 </span>
               </div>
@@ -78,21 +95,106 @@ const Stepper = ({ currentStage }: { currentStage: number }) => {
   )
 }
 
-const LoginScreen = ({ onLogin, onRegister }: { onLogin: () => void, onRegister: (m: any) => void }) => {
-  const [view, setView] = useState<'login' | 'forgot' | 'contact' | 'register'>('login');
-  const [regData, setRegData] = useState({ name: '', email: '', phone: '', country: '' });
-  const [regSuccess, setRegSuccess] = useState(false);
+const Toast = ({ message, type }: { message: string, type: 'success' | 'error' }) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 100, scale: 0.9 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      exit={{ opacity: 0, x: 100, scale: 0.9 }}
+      className="fixed right-6 top-6 z-[9999] flex items-center space-x-4 px-6 py-4 rounded-2xl shadow-[0_25px_60px_-10px_rgba(0,0,0,0.25)] backdrop-blur-xl border border-white/40 bg-white/70 dark:bg-black/60 dark:border-white/10"
+      style={{
+        maxWidth: '90vw',
+        minWidth: '350px'
+      }}
+    >
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg transform transition-transform ${
+        type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+      }`}>
+        {type === 'success' ? <CheckCircle size={24} /> : <AlertCircle size={24} />}
+      </div>
+      <div className="flex flex-col flex-1">
+        <span className="text-[10px] uppercase font-black tracking-[0.2em] text-[var(--color-fs-text-secondary)] opacity-50 mb-0.5">
+          {type === 'success' ? 'Notificación' : 'Error del sistema'}
+        </span>
+        <p className="text-sm font-extrabold text-[var(--color-secondary)] dark:text-white tracking-tight leading-snug">{message}</p>
+      </div>
+    </motion.div>
+  );
+};
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+const LoginScreen = ({ onLogin, onRegister }: { onLogin: (e: string, p: string) => Promise<void>, onRegister: (m: any, p: string) => Promise<void> }) => {
+  const [view, setView] = useState<'login' | 'forgot' | 'contact' | 'register'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [regData, setRegData] = useState({ name: '', email: '', phone: '', country: '', password: '' });
+  const [regSuccess, setRegSuccess] = useState(false);
+  const [emailWarning, setEmailWarning] = useState(false);
+
+  const handlePhoneChange = (val: string) => {
+    let newCountry = regData.country;
+    // Detectar país por prefijo
+    const match = COUNTRY_DATA.find(c => val.startsWith(c.prefix));
+    if (match) newCountry = match.name;
+    setRegData({...regData, phone: val, country: newCountry});
+  };
+
+  const handleCountryChange = (val: string) => {
+    let newPhone = regData.phone;
+    const country = COUNTRY_DATA.find(c => c.name === val);
+    if (country && (!newPhone || newPhone.trim() === '')) {
+      newPhone = country.prefix + ' ' ;
+    }
+    setRegData({...regData, country: val, phone: newPhone});
+  };
+
+  const handleEmailChange = (val: string) => {
+    setRegData({...regData, email: val});
+    setEmailWarning(val.includes('@') && !val.toLowerCase().endsWith('@gmail.com'));
+  };
+
+  const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onRegister({
-      name: regData.name,
-      email: regData.email,
-      phone: regData.phone,
-      country: regData.country,
-      status: 'Pendiente'
-    });
-    setRegSuccess(true);
+    setLoading(true);
+    setError(null);
+    try {
+      await onLogin(email, password);
+      showToast('Bienvenido de nuevo');
+    } catch (err: any) {
+      setError(err.message || 'Error al iniciar sesión');
+      showToast(err.message || 'Error al iniciar sesión', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      await onRegister({
+        name: regData.name,
+        email: regData.email,
+        phone: regData.phone,
+        country: regData.country,
+        status: 'Pendiente'
+      }, regData.password);
+      setRegSuccess(true);
+    } catch (err: any) {
+      setError(err.message || 'Error al registrarse');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -114,18 +216,27 @@ const LoginScreen = ({ onLogin, onRegister }: { onLogin: () => void, onRegister:
         {view === 'login' && (
           <div className="animate-fade-in">
             <h1 className="text-2xl font-semibold text-center text-[var(--color-fs-text)] mb-2 tracking-tight">
-              Proyecto de oportunidades de Digitalización de Imágenes
+              OC Oportunidades Cementerios
             </h1>
             <p className="text-sm text-center text-[var(--color-fs-text-secondary)] mb-8 leading-relaxed">
-              Sistema de apoyo al voluntario/misionero que tienen una oportunidad de digitalizacion de cementerios
+              Sistema de apoyo al voluntario/misionero para digitalización de cementerios
             </p>
 
-            <form onSubmit={(e) => { e.preventDefault(); onLogin(); }} className="space-y-4">
+            {error && (
+              <div className="bg-red-50 text-red-700 p-3 rounded-xl mb-4 text-sm border border-red-100 flex items-center gap-2">
+                <AlertCircle size={16} />
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div>
                 <input 
                   type="email" 
                   placeholder="Correo electrónico" 
                   required
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl border border-[var(--color-fs-border)] bg-[var(--color-fs-bg-alt)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent transition-all text-[var(--color-fs-text)]"
                 />
               </div>
@@ -134,6 +245,8 @@ const LoginScreen = ({ onLogin, onRegister }: { onLogin: () => void, onRegister:
                   type="password" 
                   placeholder="Contraseña" 
                   required
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl border border-[var(--color-fs-border)] bg-[var(--color-fs-bg-alt)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent transition-all text-[var(--color-fs-text)]"
                 />
               </div>
@@ -147,22 +260,17 @@ const LoginScreen = ({ onLogin, onRegister }: { onLogin: () => void, onRegister:
                   ¿Olvidaste tu contraseña?
                 </button>
                 
-                <button type="submit" className="w-full bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white font-medium py-3 rounded-xl transition-colors">
-                  Iniciar sesión
+                <button 
+                  type="submit" 
+                  disabled={loading}
+                  className="w-full bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white font-medium py-3 rounded-xl transition-colors disabled:opacity-50"
+                >
+                  {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
                 </button>
               </div>
             </form>
 
-            <div className="mt-6 text-center">
-              <div className="border-t border-[var(--color-fs-border)] pt-4">
-                <button 
-                  onClick={() => setView('contact')}
-                  className="text-sm text-[var(--color-fs-text-secondary)] hover:text-[var(--color-fs-text)] font-medium transition-colors"
-                >
-                  Quiero contactar a alguien para digitalizar imágenes
-                </button>
-              </div>
-            </div>
+
           </div>
         )}
 
@@ -264,32 +372,50 @@ const LoginScreen = ({ onLogin, onRegister }: { onLogin: () => void, onRegister:
                     onChange={e => setRegData({...regData, name: e.target.value})}
                     className="w-full px-4 py-3 rounded-xl border border-[var(--color-fs-border)] bg-[var(--color-fs-bg-alt)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent transition-all text-[var(--color-fs-text)]" 
                   />
-                  <input 
-                    type="email" 
-                    placeholder="Correo electrónico" 
-                    required
-                    value={regData.email}
-                    onChange={e => setRegData({...regData, email: e.target.value})}
-                    className="w-full px-4 py-3 rounded-xl border border-[var(--color-fs-border)] bg-[var(--color-fs-bg-alt)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent transition-all text-[var(--color-fs-text)]" 
-                  />
-                  <input 
-                    type="tel" 
-                    placeholder="Teléfono" 
-                    required
-                    value={regData.phone}
-                    onChange={e => setRegData({...regData, phone: e.target.value})}
-                    className="w-full px-4 py-3 rounded-xl border border-[var(--color-fs-border)] bg-[var(--color-fs-bg-alt)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent transition-all text-[var(--color-fs-text)]" 
-                  />
-                  <input 
-                    type="text" 
-                    placeholder="País" 
+                  <div className="space-y-1">
+                    <input 
+                      type="email" 
+                      placeholder="Correo electrónico" 
+                      required
+                      value={regData.email}
+                      onChange={e => handleEmailChange(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-[var(--color-fs-border)] bg-[var(--color-fs-bg-alt)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent transition-all text-[var(--color-fs-text)]" 
+                    />
+                    {emailWarning && (
+                      <div className="bg-[#FFFBEB] dark:bg-[#451A03] border border-[#FDE68A] dark:border-[#92400E] text-[#92400E] dark:text-[#FDE68A] p-3 rounded-xl text-xs flex items-start gap-2 animate-fade-in mb-2">
+                        <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+                        <p>Te recomendamos usar una cuenta de <b>@gmail.com</b> para asegurar que recibas los correos de confirmación sin problemas.</p>
+                      </div>
+                    )}
+                  </div>
+                  <select 
                     required
                     value={regData.country}
-                    onChange={e => setRegData({...regData, country: e.target.value})}
+                    onChange={e => handleCountryChange(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-[var(--color-fs-border)] bg-[var(--color-fs-bg-alt)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent transition-all text-[var(--color-fs-text)]" 
+                  >
+                    <option value="">Selecciona tu país</option>
+                    {COUNTRY_DATA.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                    <option value="Otro">Otro</option>
+                  </select>
+                  <input 
+                    type="tel" 
+                    placeholder="Teléfono (Ej: +54 9 11 1234 5678)" 
+                    required
+                    value={regData.phone}
+                    onChange={e => handlePhoneChange(e.target.value)}
                     className="w-full px-4 py-3 rounded-xl border border-[var(--color-fs-border)] bg-[var(--color-fs-bg-alt)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent transition-all text-[var(--color-fs-text)]" 
                   />
-                  <button type="submit" className="w-full bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white font-medium py-3 rounded-xl transition-colors">
-                    Registrarse
+                  <input 
+                    type="password" 
+                    placeholder="Crea una contraseña" 
+                    required
+                    value={regData.password}
+                    onChange={e => setRegData({...regData, password: e.target.value})}
+                    className="w-full px-4 py-3 rounded-xl border border-[var(--color-fs-border)] bg-[var(--color-fs-bg-alt)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent transition-all text-[var(--color-fs-text)]" 
+                  />
+                  <button type="submit" disabled={loading} className="w-full bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white font-medium py-3 rounded-xl transition-colors disabled:opacity-50">
+                    {loading ? 'Registrando...' : 'Registrarse'}
                   </button>
                 </form>
                 <div className="mt-6 text-center">
@@ -303,17 +429,23 @@ const LoginScreen = ({ onLogin, onRegister }: { onLogin: () => void, onRegister:
         )}
       </motion.div>
 
-      <div className="mt-8 text-center relative z-10">
-        {view !== 'register' && (
-          <button onClick={() => setView('register')} className="text-[var(--color-primary)] hover:underline font-medium">
-            Regístrate como misionero de Servicio o Voluntario
-          </button>
-        )}
-      </div>
+
 
       <footer className="absolute bottom-4 w-full text-center text-sm text-[var(--color-fs-text-secondary)]">
         <p>© 2026 Hecho con ❤️ para proveer apoyo al usuario</p>
+        {view !== 'register' && (
+          <button 
+            onClick={() => setView('register')}
+            className="hover:underline transition-colors opacity-70 hover:opacity-100"
+            style={{ fontSize: '10px', color: 'var(--color-fs-text-secondary)', marginTop: '4px' }}
+          >
+            Acceso misioneros de servicio
+          </button>
+        )}
       </footer>
+      <AnimatePresence>
+        {toast && <Toast message={toast.message} type={toast.type} />}
+      </AnimatePresence>
     </div>
   );
 };
@@ -328,9 +460,9 @@ const Layout = ({ children, currentView, setCurrentView, onLogout }: any) => {
             <div className="flex items-center space-x-8">
               <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setCurrentView('dashboard')}>
                 <div className="w-8 h-8 bg-[var(--color-primary)] rounded-lg flex items-center justify-center text-white font-bold text-sm">
-                  AIC
+                  OC
                 </div>
-                <span className="font-bold tracking-wide hidden sm:block text-[var(--color-secondary)]">Cono Sur</span>
+                <span className="font-bold tracking-wide hidden sm:block text-[var(--color-secondary)]">Oportunidades Cementerios</span>
               </div>
               
               <div className="hidden md:flex space-x-1">
@@ -722,6 +854,11 @@ const CemeteryListScreen = ({ onOpenDetail, onNewCemetery, initialFilterStage, c
                 <MapPin size={14} className="inline mr-1 text-[var(--color-primary)]" />
                 {cem.city}, {cem.province}
               </p>
+              {cem.address && (
+                <p className="text-xs text-[var(--color-fs-text-secondary)] mb-2 italic">
+                  {cem.address}
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-2 text-sm mb-4">
                 <div>
                   <span className="block text-xs text-[var(--color-fs-text-secondary)]">Ingreso</span>
@@ -755,6 +892,7 @@ const CemeteryListScreen = ({ onOpenDetail, onNewCemetery, initialFilterStage, c
               <tr className="bg-[var(--color-fs-bg)] text-[var(--color-fs-text-secondary)] text-sm border-b border-[var(--color-fs-border)]">
                 <th className="p-5 font-semibold">Nombre</th>
                 <th className="p-5 font-semibold">Ubicación</th>
+                <th className="p-5 font-semibold">Dirección</th>
                 <th className="p-5 font-semibold whitespace-nowrap">Etapa Actual</th>
                 <th className="p-5 font-semibold whitespace-nowrap">Fecha Ingreso</th>
                 <th className="p-5 font-semibold whitespace-nowrap">Último Contacto</th>
@@ -767,6 +905,7 @@ const CemeteryListScreen = ({ onOpenDetail, onNewCemetery, initialFilterStage, c
                 <tr key={cem.id} className="hover:bg-[var(--color-fs-bg-alt)] transition-colors group">
                   <td className="p-5 font-bold text-[var(--color-secondary)]">{cem.name}</td>
                   <td className="p-5 text-[var(--color-fs-text-secondary)]">{cem.city}, {cem.province}, {cem.country}</td>
+                  <td className="p-5 text-[var(--color-fs-text-secondary)]">{cem.address || '-'}</td>
                   <td className="p-5 whitespace-nowrap">
                     <span 
                       className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm"
@@ -805,6 +944,28 @@ const CemeteryListScreen = ({ onOpenDetail, onNewCemetery, initialFilterStage, c
 
 const NewMissionaryScreen = ({ onSave, onCancel }: any) => {
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', status: 'Activo', country: '' });
+  const [emailWarning, setEmailWarning] = useState(false);
+
+  const handleEmailChange = (val: string) => {
+    setFormData({...formData, email: val});
+    setEmailWarning(val.includes('@') && !val.toLowerCase().endsWith('@gmail.com'));
+  };
+
+  const handleCountryChange = (val: string) => {
+    let newPhone = formData.phone;
+    const country = COUNTRY_DATA.find(c => c.name === val);
+    if (country && (!newPhone || newPhone.trim() === '')) {
+      newPhone = country.prefix + ' ' ;
+    }
+    setFormData({...formData, country: val, phone: newPhone});
+  };
+
+  const handlePhoneChange = (val: string) => {
+    let newCountry = formData.country;
+    const match = COUNTRY_DATA.find(c => val.startsWith(c.prefix));
+    if (match) newCountry = match.name;
+    setFormData({...formData, phone: val, country: newCountry});
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -833,16 +994,35 @@ const NewMissionaryScreen = ({ onSave, onCancel }: any) => {
               placeholder="Ej. Élder Smith"
             />
           </div>
-          <div>
-            <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Correo Electrónico</label>
+          <div className="space-y-2">
+            <label className="block text-sm font-bold text-[var(--color-fs-text)]">Correo Electrónico</label>
             <input 
               type="email" 
               required
               value={formData.email}
-              onChange={e => setFormData({...formData, email: e.target.value})}
+              onChange={e => handleEmailChange(e.target.value)}
               className="w-full bg-[var(--color-fs-bg)] text-[var(--color-fs-text)] border-[var(--color-fs-border)]" 
               placeholder="correo@ejemplo.com"
             />
+            {emailWarning && (
+              <div className="bg-[#FFFBEB] dark:bg-[#451A03] border border-[#FDE68A] dark:border-[#92400E] text-[#92400E] dark:text-[#FDE68A] p-2 rounded-lg text-[11px] flex items-start gap-1.5 animate-fade-in">
+                <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
+                <p>Se recomienda <b>Gmail</b> para mejor recepción de avisos.</p>
+              </div>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">País</label>
+            <select 
+              required
+              value={formData.country}
+              onChange={e => handleCountryChange(e.target.value)}
+              className="w-full bg-[var(--color-fs-bg)] text-[var(--color-fs-text)] border-[var(--color-fs-border)]"
+            >
+              <option value="">Selecciona un país</option>
+              {COUNTRY_DATA.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+              <option value="Otro">Otro</option>
+            </select>
           </div>
           <div>
             <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Teléfono</label>
@@ -850,13 +1030,13 @@ const NewMissionaryScreen = ({ onSave, onCancel }: any) => {
               type="tel" 
               required
               value={formData.phone}
-              onChange={e => setFormData({...formData, phone: e.target.value})}
+              onChange={e => handlePhoneChange(e.target.value)}
               className="w-full bg-[var(--color-fs-bg)] text-[var(--color-fs-text)] border-[var(--color-fs-border)]" 
               placeholder="+54 11 1234-5678"
             />
           </div>
           <div>
-            <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Estado</label>
+            <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Status</label>
             <select 
               value={formData.status}
               onChange={e => setFormData({...formData, status: e.target.value})}
@@ -864,17 +1044,8 @@ const NewMissionaryScreen = ({ onSave, onCancel }: any) => {
             >
               <option value="Activo">Activo</option>
               <option value="Inactivo">Inactivo</option>
+              <option value="Pendiente">Pendiente</option>
             </select>
-          </div>
-          <div>
-            <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">País</label>
-            <input 
-              type="text" 
-              value={formData.country}
-              onChange={e => setFormData({...formData, country: e.target.value})}
-              className="w-full bg-[var(--color-fs-bg)] text-[var(--color-fs-text)] border-[var(--color-fs-border)]" 
-              placeholder="Ej. Argentina"
-            />
           </div>
         </div>
 
@@ -904,6 +1075,29 @@ const MissionaryDetailScreen = ({ id, onBack, missionaries, cemeteries, onAssign
     country: missionary?.country || '',
     status: missionary?.status || 'Activo'
   });
+  const [emailWarning, setEmailWarning] = useState(false);
+
+  const handleEmailChange = (val: string) => {
+    setFormData({...formData, email: val});
+    setEmailWarning(val.includes('@') && !val.toLowerCase().endsWith('@gmail.com'));
+  };
+
+  const handleCountryChange = (val: string) => {
+    let newPhone = formData.phone;
+    const country = COUNTRY_DATA.find(c => c.name === val);
+    if (country && (!newPhone || newPhone.trim() === '')) {
+      newPhone = country.prefix + ' ' ;
+    }
+    setFormData({...formData, country: val, phone: newPhone});
+  };
+
+  const handlePhoneChange = (val: string) => {
+    let newCountry = formData.country;
+    const match = COUNTRY_DATA.find(c => val.startsWith(c.prefix));
+    if (match) newCountry = match.name;
+    setFormData({...formData, phone: val, country: newCountry});
+  };
+
   const [showAssignModal, setShowAssignModal] = useState(false);
 
   if (!missionary) return null;
@@ -986,28 +1180,54 @@ const MissionaryDetailScreen = ({ id, onBack, missionaries, cemeteries, onAssign
               </span>
             )}
           </div>
-          <div>
-            <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text-secondary)]">Correo Electrónico</label>
+          <div className="space-y-2">
+            <label className="block text-sm font-bold text-[var(--color-fs-text-secondary)]">Correo Electrónico</label>
             {isEditing ? (
-              <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-[var(--color-fs-bg)] text-[var(--color-fs-text)] border-[var(--color-fs-border)] rounded-md p-2" />
+              <>
+                <input 
+                  type="email" 
+                  value={formData.email} 
+                  onChange={e => handleEmailChange(e.target.value)} 
+                  className="w-full bg-[var(--color-fs-bg)] text-[var(--color-fs-text)] border-[var(--color-fs-border)] rounded-md p-2" 
+                />
+                {emailWarning && (
+                  <div className="bg-[#FFFBEB] dark:bg-[#451A03] border border-[#FDE68A] dark:border-[#92400E] text-[#92400E] dark:text-[#FDE68A] p-2 rounded-lg text-[11px] flex items-start gap-1.5 animate-fade-in">
+                    <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
+                    <p>Se recomienda <b>Gmail</b> para mejor recepción de avisos.</p>
+                  </div>
+                )}
+              </>
             ) : (
               <p className="text-lg font-medium text-[var(--color-fs-text)]">{missionary.email}</p>
             )}
           </div>
           <div>
-            <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text-secondary)]">Teléfono</label>
+            <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text-secondary)]">País</label>
             {isEditing ? (
-              <input type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full bg-[var(--color-fs-bg)] text-[var(--color-fs-text)] border-[var(--color-fs-border)] rounded-md p-2" />
+              <select 
+                value={formData.country} 
+                onChange={e => handleCountryChange(e.target.value)} 
+                className="w-full bg-[var(--color-fs-bg)] text-[var(--color-fs-text)] border-[var(--color-fs-border)] rounded-md p-2"
+              >
+                <option value="">Selecciona un país</option>
+                {COUNTRY_DATA.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                <option value="Otro">Otro</option>
+              </select>
             ) : (
-              <p className="text-lg font-medium text-[var(--color-fs-text)]">{missionary.phone}</p>
+              <p className="text-lg font-medium text-[var(--color-fs-text)]">{missionary.country || 'No especificado'}</p>
             )}
           </div>
           <div>
-            <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text-secondary)]">País</label>
+            <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text-secondary)]">Teléfono</label>
             {isEditing ? (
-              <input type="text" value={formData.country} onChange={e => setFormData({...formData, country: e.target.value})} className="w-full bg-[var(--color-fs-bg)] text-[var(--color-fs-text)] border-[var(--color-fs-border)] rounded-md p-2" />
+              <input 
+                type="tel" 
+                value={formData.phone} 
+                onChange={e => handlePhoneChange(e.target.value)} 
+                className="w-full bg-[var(--color-fs-bg)] text-[var(--color-fs-text)] border-[var(--color-fs-border)] rounded-md p-2" 
+              />
             ) : (
-              <p className="text-lg font-medium text-[var(--color-fs-text)]">{missionary.country || 'No especificado'}</p>
+              <p className="text-lg font-medium text-[var(--color-fs-text)]">{missionary.phone}</p>
             )}
           </div>
         </div>
@@ -1119,7 +1339,7 @@ const MissionaryDetailScreen = ({ id, onBack, missionaries, cemeteries, onAssign
   );
 };
 
-const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCemetery }: any) => {
+const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCemetery, showToast }: any) => {
   const cemetery = cemeteries.find((c: any) => c.id === id) || cemeteries[0];
   const [currentStage, setCurrentStage] = useState(cemetery.stage);
   const [visits, setVisits] = useState(cemetery.visits || []);
@@ -1129,9 +1349,10 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
     if (cemetery.visits) setVisits(cemetery.visits);
   }, [cemetery.visits]);
 
-  const [newVisit, setNewVisit] = useState({ date: '', missionary: '', contact: '', purpose: '', notes: '', type: 'Visita' });
+  const [newVisit, setNewVisit] = useState({ date: '', missionary: cemetery.missionary || '', contact: '', purpose: '', notes: '', type: 'Visita' });
   const [showNewVisitForm, setShowNewVisitForm] = useState(false);
-  const [assignedMissionaryId, setAssignedMissionaryId] = useState<number | ''>(cemetery.missionaryId || '');
+  const [loadingVisit, setLoadingVisit] = useState(false);
+  const [assignedMissionaryId, setAssignedMissionaryId] = useState<string | ''>(cemetery.missionaryId || '');
 
   // Etapa 2 state
   const [fsAlreadyDigitized, setFsAlreadyDigitized] = useState(cemetery.fsAlreadyDigitized || false);
@@ -1148,65 +1369,110 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
 
   const [stage1Data, setStage1Data] = useState({
     contactName: cemetery.contactName || '',
-    contactRole: cemetery.contactRole || '',
+    contactPosition: cemetery.contactPosition || '',
     contactPhone: cemetery.contactPhone || '',
     contactEmail: cemetery.contactEmail || '',
-    interestLevel: cemetery.interestLevel || 'Alto',
-    previousAgreement: cemetery.previousAgreement || 'Desconoce'
+    contactInterestLevel: cemetery.contactInterestLevel || 'Alto',
+    previousFsAgreement: cemetery.previousFsAgreement || 'Desconoce'
   });
 
   const [stage2Data, setStage2Data] = useState({
-    estimatedActs: cemetery.estimatedActs || '',
-    bookCount: cemetery.bookCount || '',
-    dateRangeStart: cemetery.dateRangeStart || '',
-    dateRangeEnd: cemetery.dateRangeEnd || ''
+    estimatedRecords: cemetery.estimatedRecords || '',
+    numberOfBooks: cemetery.numberOfBooks || '',
+    dateRangeFrom: cemetery.dateRangeFrom || '',
+    dateRangeTo: cemetery.dateRangeTo || ''
   });
 
   const handleSaveStageData = () => {
     if (onUpdateCemetery) {
+      // Limpiamos los campos numéricos para evitar errores de sintaxis en PostgreSQL ('' != integer)
+      const cleanStage2Data = {
+        estimatedRecords: stage2Data.estimatedRecords === '' ? null : parseInt(String(stage2Data.estimatedRecords)),
+        numberOfBooks: stage2Data.numberOfBooks === '' ? null : parseInt(String(stage2Data.numberOfBooks)),
+        dateRangeFrom: stage2Data.dateRangeFrom === '' ? null : parseInt(String(stage2Data.dateRangeFrom)),
+        dateRangeTo: stage2Data.dateRangeTo === '' ? null : parseInt(String(stage2Data.dateRangeTo))
+      };
+
       onUpdateCemetery(cemetery.id, {
         ...stage1Data,
-        ...stage2Data,
+        ...cleanStage2Data,
         fsAlreadyDigitized,
         imageUsageStatus,
         imageRequest,
-        digitizationDate,
+        digitizationDate: digitizationDate === '' ? null : digitizationDate,
         collectionName,
         digitizedPeriods,
-        readyForVisitDate,
-        managerNotifiedDate,
-        managerNotifiedName
+        readyForVisitDate: readyForVisitDate === '' ? null : readyForVisitDate,
+        managerNotifiedDate: managerNotifiedDate === '' ? null : managerNotifiedDate,
+        managerNotifiedName,
+        stage: currentStage // Sincronizar la etapa actual con la base de datos al guardar
       });
-      alert('Información guardada exitosamente');
+      if (showToast) showToast('Borrador guardado exitosamente');
     }
   };
 
   const handleAddVisit = () => {
-    if (!newVisit.date || !newVisit.missionary || !newVisit.contact) return;
-    api.addVisit(cemetery.id, newVisit)
-      .then(() => {
+    if (!newVisit.date) return showToast('La fecha es obligatoria', 'error');
+    if (!newVisit.missionary) return showToast('El misionero es obligatorio', 'error');
+    if (!newVisit.contact) return showToast('El contacto es obligatorio', 'error');
+    
+    setLoadingVisit(true);
+    // Incluir la etapa actual en la visita para histórico
+    const visitData = { 
+      ...newVisit, 
+      stage: currentStage 
+    };
+
+    console.log('Intentando guardar visita:', visitData);
+
+    api.addVisit(cemetery.id, visitData)
+      .then((res) => {
+        console.log('Visita guardada con éxito:', res);
         // Recargamos los datos para ver la nueva visita
         if (onUpdateCemetery) onUpdateCemetery(cemetery.id, {}); 
-        setNewVisit({ date: '', missionary: '', contact: '', purpose: '', notes: '', type: 'Visita' });
+        setNewVisit({ date: '', missionary: cemetery.missionary || '', contact: '', purpose: '', notes: '', type: 'Visita' });
         setShowNewVisitForm(false);
-        // Nota: El componente App debería recargar los datos
+        if (showToast) showToast('Contacto registrado con éxito');
       })
-      .catch(err => alert('Error al guardar visita: ' + err.message));
+      .catch(err => {
+        console.error('Error al guardar visita:', err);
+        if (showToast) showToast('Error al guardar: ' + (err.message || 'Error desconocido'), 'error');
+      })
+      .finally(() => setLoadingVisit(false));
   };
 
-  const renderVisitLog = () => (
-    <div className="mt-8 pt-6 border-t border-[var(--color-fs-border)] print:border-black print:mt-6 print:pt-4">
-      <div className="flex justify-between items-center mb-6 print:mb-4">
-        <h3 className="text-lg font-bold text-[var(--color-fs-text)] print:text-black">Registro de Contacto</h3>
-        <button 
-          type="button"
-          onClick={() => setShowNewVisitForm(!showNewVisitForm)}
-          className="text-sm bg-[var(--color-primary-50)] text-[var(--color-primary-700)] px-3 py-1.5 rounded-lg font-medium hover:bg-[var(--color-primary-100)] transition-colors flex items-center space-x-1 print:hidden"
-        >
-          <Plus size={16} />
-          <span>Nuevo Contacto</span>
-        </button>
-      </div>
+  const renderVisitLog = () => {
+    // Ordenar: más recientes primero
+    const sortedVisits = [...visits].sort((a: any, b: any) => {
+      // Manejar nulos o vacíos al final
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
+
+    // Helper para formato limpio DD/MM/AAAA sin líos de zona horaria
+    const formatCleanDate = (dateStr: string) => {
+      if (!dateStr) return '';
+      // Si viene con T (ISO), tomamos la parte de la fecha
+      const onlyDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+      const parts = onlyDate.split('-');
+      if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      return onlyDate;
+    };
+
+    return (
+      <div className="mt-8 pt-6 border-t border-[var(--color-fs-border)] print:border-black print:mt-6 print:pt-4">
+        <div className="flex justify-between items-center mb-6 print:mb-4">
+          <h3 className="text-lg font-bold text-[var(--color-fs-text)] print:text-black">Registro de Contacto</h3>
+          <button 
+            type="button"
+            onClick={() => setShowNewVisitForm(!showNewVisitForm)}
+            className="text-sm bg-[var(--color-primary-50)] text-[var(--color-primary-700)] px-3 py-1.5 rounded-lg font-medium hover:bg-[var(--color-primary-100)] transition-colors flex items-center space-x-1 print:hidden"
+          >
+            <Plus size={16} />
+            <span>Nuevo Contacto</span>
+          </button>
+        </div>
 
       {showNewVisitForm && (
         <div className="bg-[var(--color-fs-bg-alt)] p-5 rounded-xl border border-[var(--color-fs-border)] mb-6 space-y-4 animate-fade-in print:hidden">
@@ -1243,23 +1509,31 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
           </div>
           <div className="flex justify-end space-x-2 pt-2">
             <button type="button" onClick={() => setShowNewVisitForm(false)} className="text-sm px-4 py-2 text-[var(--color-fs-text-secondary)] hover:bg-[var(--color-fs-border)] rounded-lg transition-colors font-medium">Cancelar</button>
-            <button type="button" onClick={handleAddVisit} disabled={!newVisit.date || !newVisit.missionary || !newVisit.contact} className="text-sm px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-hover)] transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed">Guardar Contacto</button>
+            <button 
+              type="button" 
+              onClick={handleAddVisit} 
+              disabled={loadingVisit || !newVisit.date || !newVisit.missionary || !newVisit.contact} 
+              className="text-sm px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-hover)] transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+            >
+              {loadingVisit && <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
+              <span>{loadingVisit ? 'Guardando...' : 'Guardar Contacto'}</span>
+            </button>
           </div>
         </div>
       )}
 
       <div className="space-y-4">
-        {visits.length === 0 ? (
+        {sortedVisits.length === 0 ? (
           <p className="text-sm text-[var(--color-fs-text-secondary)] italic text-center py-4 print:text-left print:py-1">No hay contactos registrados aún.</p>
         ) : (
-          visits.map((visit: any) => (
+          sortedVisits.map((visit: any) => (
             <div key={visit.id} className="bg-[var(--color-fs-bg-alt)] border border-[var(--color-fs-border)] p-4 rounded-xl shadow-sm print:bg-transparent print:border-b print:border-gray-300 print:rounded-none print:shadow-none print:p-2 print:mb-2">
               <div className="flex justify-between items-start mb-2 print:mb-1">
                 <div className="flex items-center space-x-2 flex-wrap gap-y-2">
-                  <span className="font-bold text-[var(--color-fs-text)] print:text-black">{visit.date}</span>
+                  <span className="font-bold text-[var(--color-fs-text)] print:text-black">{formatCleanDate(visit.date)}</span>
                   <span className="text-xs bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200 px-2 py-1 rounded-md font-medium">{visit.type || 'Visita'}</span>
                   {visit.stage !== undefined && stages[visit.stage] && (
-                    <span className="text-xs px-2 py-1 rounded-md font-bold text-white shadow-sm" style={{ backgroundColor: stages[visit.stage].color }}>
+                    <span className="text-[10px] px-2.5 py-0.5 rounded-full font-bold text-white shadow-sm flex items-center gap-1" style={{ backgroundColor: stages[visit.stage].color }}>
                       {stages[visit.stage].name}
                     </span>
                   )}
@@ -1280,6 +1554,7 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
       </div>
     </div>
   );
+};
 
   return (
     <div className="space-y-6 animate-slide-up">
@@ -1306,7 +1581,7 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
               <select 
                 value={assignedMissionaryId}
                 onChange={(e) => {
-                  const newId = e.target.value ? Number(e.target.value) : '';
+                  const newId = e.target.value || '';
                   setAssignedMissionaryId(newId);
                   const selectedMissionary = missionaries.find((m: any) => m.id === newId);
                   if (onUpdateCemetery) {
@@ -1331,7 +1606,7 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
 
         {/* Stepper */}
         <div className="py-10 px-4 md:px-8 bg-[var(--color-fs-bg)]">
-          <Stepper currentStage={currentStage} />
+          <Stepper currentStage={currentStage} onStageClick={setCurrentStage} />
         </div>
 
         {/* Stage Content */}
@@ -1393,7 +1668,7 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
                   </div>
                   <div>
                     <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Cargo</label>
-                    <input type="text" placeholder="Director / Administrador" value={stage1Data.contactRole} onChange={e => setStage1Data({...stage1Data, contactRole: e.target.value})} />
+                    <input type="text" placeholder="Director / Administrador" value={stage1Data.contactPosition} onChange={e => setStage1Data({...stage1Data, contactPosition: e.target.value})} />
                   </div>
                   <div>
                     <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Teléfono</label>
@@ -1405,7 +1680,7 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
                   </div>
                   <div>
                     <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Nivel de Interés</label>
-                    <select value={stage1Data.interestLevel} onChange={e => setStage1Data({...stage1Data, interestLevel: e.target.value})}>
+                    <select value={stage1Data.contactInterestLevel} onChange={e => setStage1Data({...stage1Data, contactInterestLevel: e.target.value})}>
                       <option>Alto</option>
                       <option>Medio</option>
                       <option>Bajo</option>
@@ -1414,7 +1689,7 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
                   </div>
                   <div>
                     <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Convenio Previo FS</label>
-                    <select value={stage1Data.previousAgreement} onChange={e => setStage1Data({...stage1Data, previousAgreement: e.target.value})}>
+                    <select value={stage1Data.previousFsAgreement} onChange={e => setStage1Data({...stage1Data, previousFsAgreement: e.target.value})}>
                       <option>Desconoce</option>
                       <option>Sí</option>
                       <option>No</option>
@@ -1422,8 +1697,11 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
                   </div>
                 </div>
                 
-                <div className="flex justify-end">
-                  <button type="button" onClick={handleSaveStageData} className="btn-primary py-2 px-4 text-sm">Guardar Cambios Etapa 1</button>
+                <div className="flex justify-end pt-4">
+                  <button type="button" onClick={handleSaveStageData} className="btn-primary py-3 px-8 text-sm flex items-center space-x-2 shadow-lg hover:scale-105 transition-transform">
+                    <Save size={18} />
+                    <span>Guardar Cambios Etapa 1</span>
+                  </button>
                 </div>
 
                 {renderVisitLog()}
@@ -1435,19 +1713,19 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Cantidad estimada de actas</label>
-                    <input type="number" placeholder="Ej. 50000" value={stage2Data.estimatedActs} onChange={e => setStage2Data({...stage2Data, estimatedActs: e.target.value})} />
+                    <input type="number" placeholder="Ej. 50000" value={stage2Data.estimatedRecords} onChange={e => setStage2Data({...stage2Data, estimatedRecords: e.target.value})} />
                   </div>
                   <div>
                     <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Cantidad de libros/tomos</label>
-                    <input type="number" placeholder="Ej. 120" value={stage2Data.bookCount} onChange={e => setStage2Data({...stage2Data, bookCount: e.target.value})} />
+                    <input type="number" placeholder="Ej. 120" value={stage2Data.numberOfBooks} onChange={e => setStage2Data({...stage2Data, numberOfBooks: e.target.value})} />
                   </div>
                   <div>
                     <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Rango de fechas (Desde)</label>
-                    <input type="number" placeholder="Ej. 1890" value={stage2Data.dateRangeStart} onChange={e => setStage2Data({...stage2Data, dateRangeStart: e.target.value})} />
+                    <input type="number" placeholder="Ej. 1890" value={stage2Data.dateRangeFrom} onChange={e => setStage2Data({...stage2Data, dateRangeFrom: e.target.value})} />
                   </div>
                   <div>
                     <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Rango de fechas (Hasta)</label>
-                    <input type="number" placeholder="Ej. 2020" value={stage2Data.dateRangeEnd} onChange={e => setStage2Data({...stage2Data, dateRangeEnd: e.target.value})} />
+                    <input type="number" placeholder="Ej. 2020" value={stage2Data.dateRangeTo} onChange={e => setStage2Data({...stage2Data, dateRangeTo: e.target.value})} />
                   </div>
                   <div className="md:col-span-2 bg-[var(--color-fs-bg-alt)] p-5 rounded-xl border border-[var(--color-fs-border)] space-y-4">
                     <label className="flex items-center space-x-3 cursor-pointer">
@@ -1513,6 +1791,13 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
                     )}
                   </div>
                 </div>
+                
+                <div className="flex justify-end pt-4">
+                  <button type="button" onClick={handleSaveStageData} className="btn-primary py-3 px-8 text-sm flex items-center space-x-2 shadow-lg hover:scale-105 transition-transform">
+                    <Save size={18} />
+                    <span>Guardar Cambios Etapa 2</span>
+                  </button>
+                </div>
 
                 {renderVisitLog()}
               </form>
@@ -1542,14 +1827,14 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
                   <div className="mb-6">
                     <h3 className="text-lg font-bold text-[var(--color-primary)] mb-3 print:text-black">1. Datos de Contacto y Ubicación</h3>
                     <div className="grid grid-cols-2 gap-4 text-sm text-[var(--color-fs-text)]">
-                      <div><span className="font-bold">Dirección:</span> {cemetery.location || `${cemetery.city}, ${cemetery.province}`}</div>
-                      <div><span className="font-bold">Administración:</span> Municipal</div>
+                      <div><span className="font-bold">Dirección:</span> {cemetery.address || cemetery.location || `${cemetery.city}, ${cemetery.province}`}</div>
+                      <div><span className="font-bold">Administración:</span> {cemetery.adminType || 'Municipal'}</div>
                       <div><span className="font-bold">Contacto Principal:</span> {cemetery.contactName || 'No registrado'}</div>
-                      <div><span className="font-bold">Cargo:</span> Director</div>
+                      <div><span className="font-bold">Cargo:</span> {cemetery.contactPosition || 'No registrado'}</div>
                       <div><span className="font-bold">Teléfono:</span> {cemetery.contactPhone || 'No registrado'}</div>
-                      <div><span className="font-bold">Email:</span> contacto@cementerio.gob.ar</div>
-                      <div><span className="font-bold">Nivel de Interés:</span> Alto</div>
-                      <div><span className="font-bold">Convenio Previo FS:</span> Desconoce</div>
+                      <div><span className="font-bold">Email:</span> {cemetery.contactEmail || 'No registrado'}</div>
+                      <div><span className="font-bold">Nivel de Interés:</span> {cemetery.contactInterestLevel || 'No registrado'}</div>
+                      <div><span className="font-bold">Convenio Previo FS:</span> {cemetery.previousFsAgreement || 'No registrado'}</div>
                     </div>
                   </div>
 
@@ -1557,8 +1842,9 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
                   <div className="mb-6">
                     <h3 className="text-lg font-bold text-[var(--color-primary)] mb-3 print:text-black">2. Estado de los Registros</h3>
                     <div className="grid grid-cols-2 gap-4 text-sm text-[var(--color-fs-text)]">
-                      <div><span className="font-bold">Cantidad est. de actas:</span> {cemetery.inventory || '50,000 actas'}</div>
-                      <div><span className="font-bold">Rango de fechas:</span> 1890 - 2020</div>
+                      <div><span className="font-bold">Cant. est. actas:</span> {cemetery.estimatedRecords || 'No registrado'}</div>
+                      <div><span className="font-bold">Cant. libros:</span> {cemetery.numberOfBooks || 'No registrado'}</div>
+                      <div><span className="font-bold">Rango de fechas:</span> {cemetery.dateRangeFrom || '-'} al {cemetery.dateRangeTo || '-'}</div>
                       <div className="col-span-2 mt-2">
                         <span className="font-bold">Digitalización previa por FamilySearch:</span> 
                         <span className={`ml-2 font-bold ${fsAlreadyDigitized ? 'text-[var(--color-fs-green)]' : 'text-[var(--color-fs-text)]'}`}>{fsAlreadyDigitized ? 'SÍ' : 'NO'}</span>
@@ -1577,9 +1863,7 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
                   </div>
                 </div>
 
-                <div className="flex justify-end">
-                  <button type="button" onClick={handleSaveStageData} className="btn-primary py-2 px-4 text-sm">Guardar Cambios Etapa 2</button>
-                </div>
+                {/* El botón de guardar aquí era redundante y confuso, lo quitamos para centralizarlo al final de la sección de Gerencia */}
 
                 {/* Fechas Clave Etapa 3 */}
                 <div className="bg-[var(--color-fs-bg-alt)] p-6 rounded-xl border border-[var(--color-fs-border)] print:bg-transparent print:border-black print:p-0 print:mt-6">
@@ -1606,8 +1890,11 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
                       <div className="hidden print:block text-sm text-black">{managerNotifiedDate ? new Date(managerNotifiedDate).toLocaleDateString() : 'No definida'}</div>
                     </div>
                   </div>
-                  <div className="mt-6 flex justify-end">
-                    <button type="button" onClick={handleSaveStageData} className="btn-primary py-2 px-4 text-sm">Guardar Datos de Gerencia</button>
+                  <div className="mt-8 flex justify-end">
+                    <button type="button" onClick={handleSaveStageData} className="btn-primary py-3 px-8 text-sm flex items-center space-x-2 shadow-lg hover:scale-105 transition-transform">
+                      <Save size={18} />
+                      <span>Guardar Borrador de Gerencia</span>
+                    </button>
                   </div>
                 </div>
 
@@ -1693,18 +1980,50 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
 }
 
 export default function App() {
-  const [currentView, setCurrentView] = useState('login'); // 'login', 'dashboard', 'list', 'detail', 'missionaries'
-  const [selectedCemeteryId, setSelectedCemeteryId] = useState<number | null>(null);
-  const [selectedMissionaryId, setSelectedMissionaryId] = useState<number | null>(null);
+  const [currentView, setCurrentView] = useState('login'); 
+  const [session, setSession] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  
+  const [selectedCemeteryId, setSelectedCemeteryId] = useState<string | null>(null);
+  const [selectedMissionaryId, setSelectedMissionaryId] = useState<string | null>(null);
   const [filterStage, setFilterStage] = useState<number | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [cemeteries, setCemeteries] = useState<any[]>([]);
   const [missionaries, setMissionaries] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [dbError, setDbError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
-  // Carga inicial desde json-server
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  // Escuchar cambios de autenticación
+  useEffect(() => {
+    auth.getSession().then(s => {
+      setSession(s);
+      if (s) setCurrentView('dashboard');
+      setAuthLoading(false);
+    });
+
+    const subscription = auth.onAuthStateChange((s) => {
+      setSession(s);
+      if (s) {
+        setCurrentView('dashboard');
+      } else {
+        setCurrentView('login');
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // Carga inicial 
   const loadData = () => {
+    if (!session) return;
     setLoading(true);
     setDbError(null);
     Promise.all([api.getCemeteries(), api.getMissionaries()])
@@ -1712,13 +2031,17 @@ export default function App() {
         setCemeteries(cemData);
         setMissionaries(misData);
       })
-      .catch(() => {
-        setDbError('No se pudo conectar a la base de datos local. Asegúrate de correr "npm run db" en otra terminal.');
+      .catch((err) => {
+        setDbError('No se pudo conectar a Supabase. ' + err.message);
       })
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { 
+    if (session) {
+      loadData(); 
+    }
+  }, [session]);
 
   // Apply dark mode class to html element
   React.useEffect(() => {
@@ -1729,12 +2052,13 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  const handleLogin = () => {
-    setCurrentView('dashboard');
+  const handleLogin = async (email: string, pass: string) => {
+    await auth.signIn(email, pass);
+    // onAuthStateChange se encarga del resto
   };
 
-  const handleLogout = () => {
-    setCurrentView('login');
+  const handleLogout = async () => {
+    await auth.signOut();
   };
 
   const handleNavigateToList = (stageId: number | null = null) => {
@@ -1765,15 +2089,23 @@ export default function App() {
     </button>
   );
 
-  const handleRegister = (newMissionary: any) => {
-    api.createMissionary(newMissionary)
-      .then(() => {
-        loadData();
-      })
-      .catch(err => alert('Error al registrar: ' + err.message));
+  const handleRegister = async (newMissionary: any, pass: string) => {
+    // 1. Crear el usuario en Supabase Auth
+    await auth.signUp(newMissionary.email, pass, { name: newMissionary.name });
+    
+    // 2. Crear el perfil en la tabla de misioneros si es necesario (el trigger de Supabase es mejor pero lo hacemos aquí por sencillez)
+    await api.createMissionary(newMissionary);
   };
 
-  if (currentView === 'login') {
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--color-fs-bg-alt)]">
+        <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (currentView === 'login' && !session) {
     return (
       <>
         <LoginScreen onLogin={handleLogin} onRegister={handleRegister} />
@@ -1790,7 +2122,7 @@ export default function App() {
             cemeteries={cemeteries}
             missionaries={missionaries}
             onNavigateToList={handleNavigateToList} 
-            onOpenDetail={(id: number) => { setSelectedCemeteryId(id); setCurrentView('detail'); }} 
+            onOpenDetail={(id: string) => { setSelectedCemeteryId(id); setCurrentView('detail'); }} 
             onNavigateToMissionaries={() => setCurrentView('missionaries')}
             onNavigateToNewCemetery={() => setCurrentView('new')}
           />
@@ -1799,7 +2131,7 @@ export default function App() {
           <CemeteryListScreen 
             cemeteries={cemeteries}
             initialFilterStage={filterStage}
-            onOpenDetail={(id: number) => { setSelectedCemeteryId(id); setCurrentView('detail'); }} 
+            onOpenDetail={(id: string) => { setSelectedCemeteryId(id); setCurrentView('detail'); }} 
             onNewCemetery={() => setCurrentView('new')}
           />
         )}
@@ -1808,10 +2140,16 @@ export default function App() {
             id={selectedCemeteryId} 
             cemeteries={cemeteries}
             missionaries={missionaries}
-            onUpdateCemetery={(id: number, updates: any) => {
+            showToast={showToast}
+            onUpdateCemetery={(id: string, updates: any) => {
+              if (Object.keys(updates).length === 0) {
+                // Si no hay actualizaciones de campos, solo recargamos (útil para visitas nuevas)
+                loadData();
+                return;
+              }
               api.updateCemetery(id, updates)
                 .then(() => loadData())
-                .catch(err => alert('Error al actualizar: ' + err.message));
+                .catch(err => showToast(err.message || 'Error al actualizar', 'error'));
             }}
             onBack={() => setCurrentView('list')} 
           />
@@ -1827,16 +2165,14 @@ export default function App() {
                 entryDate: new Date().toISOString().split('T')[0],
                 lastContactDate: new Date().toISOString().split('T')[0],
                 missionary: 'Sin asignar',
-                inventory: 0,
-                lat: -34.6037, // Default coordinates (Buenos Aires approx)
-                lng: -58.3816,
-                visits: []
+                inventory: 0
               })
                 .then(() => {
                   loadData();
                   setCurrentView('list');
+                  showToast('Cementerio creado con éxito');
                 })
-                .catch(err => alert('Error al guardar cementerio: ' + err.message))
+                .catch(err => showToast('Error al guardar cementerio: ' + err.message, 'error'))
                 .finally(() => setLoading(false));
             }}
           />
@@ -1846,7 +2182,7 @@ export default function App() {
             missionaries={missionaries}
             cemeteries={cemeteries}
             onNewMissionary={() => setCurrentView('new_missionary')}
-            onOpenDetail={(id: number) => { setSelectedMissionaryId(id); setCurrentView('missionary_detail'); }}
+            onOpenDetail={(id: string) => { setSelectedMissionaryId(id); setCurrentView('missionary_detail'); }}
           />
         )}
         {currentView === 'missionary_detail' && (
@@ -1855,29 +2191,38 @@ export default function App() {
             missionaries={missionaries}
             cemeteries={cemeteries}
             onBack={() => setCurrentView('missionaries')}
-            onUpdateMissionary={(id: number, updates: any) => {
+            onUpdateMissionary={(id: string, updates: any) => {
               api.updateMissionary(id, updates)
-                .then(() => loadData())
-                .catch(err => alert('Error al actualizar misionero: ' + err.message));
+                .then(() => {
+                  loadData();
+                  showToast('Misionero actualizado');
+                })
+                .catch(err => showToast('Error al actualizar misionero: ' + err.message, 'error'));
             }}
-            onAssignCemetery={(cemeteryId: number, missionaryId: number) => {
+            onAssignCemetery={(cemeteryId: string, missionaryId: string) => {
               const selectedMissionary = missionaries.find(m => m.id === missionaryId);
               api.updateCemetery(cemeteryId, { 
                 missionaryId, 
                 missionary: selectedMissionary?.name,
                 missionaryEmail: selectedMissionary?.email
               })
-                .then(() => loadData())
-                .catch(err => alert('Error al asignar cementerio: ' + err.message));
+                .then(() => {
+                  loadData();
+                  showToast('Cementerio asignado');
+                })
+                .catch(err => showToast('Error al asignar cementerio: ' + err.message, 'error'));
             }}
-            onRemoveCemetery={(cemeteryId: number) => {
+            onRemoveCemetery={(cemeteryId: string) => {
               api.updateCemetery(cemeteryId, { 
                 missionaryId: null, 
                 missionary: 'Sin asignar',
                 missionaryEmail: ''
               })
-                .then(() => loadData())
-                .catch(err => alert('Error al quitar cementerio: ' + err.message));
+                .then(() => {
+                  loadData();
+                  showToast('Vínculo removido');
+                })
+                .catch(err => showToast('Error al quitar cementerio: ' + err.message, 'error'));
             }}
           />
         )}
@@ -1889,13 +2234,17 @@ export default function App() {
                 .then(() => {
                   loadData();
                   setCurrentView('missionaries');
+                  showToast('Nuevo misionero creado');
                 })
-                .catch(err => alert('Error al crear misionero: ' + err.message));
+                .catch(err => showToast('Error al crear misionero: ' + err.message, 'error'));
             }}
           />
         )}
       </Layout>
       <ThemeToggle />
+      <AnimatePresence>
+        {toast && <Toast message={toast.message} type={toast.type} />}
+      </AnimatePresence>
     </>
   );
 }

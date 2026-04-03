@@ -1,70 +1,145 @@
-// src/api/db.ts
-// Capa de acceso a datos que habla con json-server en localhost:3001
-
-const BASE_URL = 'http://localhost:3001';
-
-// ─── HELPERS ────────────────────────────────────────────────────────────────
-
-const get = async (path: string) => {
-  const res = await fetch(`${BASE_URL}${path}`);
-  if (!res.ok) throw new Error(`GET ${path} fallido: ${res.statusText}`);
-  return res.json();
-};
-
-const post = async (path: string, body: object) => {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`POST ${path} fallido: ${res.statusText}`);
-  return res.json();
-};
-
-const patch = async (path: string, body: object) => {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`PATCH ${path} fallido: ${res.statusText}`);
-  return res.json();
-};
-
-const del = async (path: string) => {
-  const res = await fetch(`${BASE_URL}${path}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error(`DELETE ${path} fallido: ${res.statusText}`);
-  return res.json();
-};
+import { supabase } from './supabase';
 
 // ─── MISIONEROS ─────────────────────────────────────────────────────────────
 
-export const getMissionaries = () => get('/missionaries');
-export const getMissionaryById = (id: number) => get(`/missionaries/${id}`);
-export const createMissionary = (data: object) => post('/missionaries', data);
-export const updateMissionary = (id: number, data: object) => patch(`/missionaries/${id}`, data);
-export const deleteMissionary = (id: number) => del(`/missionaries/${id}`);
+export const getMissionaries = async () => {
+  const { data, error } = await supabase
+    .from('missionaries')
+    .select('*')
+    .order('name');
+  if (error) throw error;
+  return data;
+};
+
+export const getMissionaryById = async (id: string) => {
+  const { data, error } = await supabase
+    .from('missionaries')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const createMissionary = async (data: any) => {
+  const { data: record, error } = await supabase
+    .from('missionaries')
+    .insert([data])
+    .select()
+    .single();
+  if (error) throw error;
+  return record;
+};
+
+export const updateMissionary = async (id: string, data: any) => {
+  const { data: record, error } = await supabase
+    .from('missionaries')
+    .update(data)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return record;
+};
+
+export const deleteMissionary = async (id: string) => {
+  const { error } = await supabase
+    .from('missionaries')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+  return true;
+};
 
 // ─── CEMENTERIOS ────────────────────────────────────────────────────────────
 
-export const getCemeteries = () => get('/cemeteries');
-export const getCemeteryById = (id: number) => get(`/cemeteries/${id}`);
-export const createCemetery = (data: object) => post('/cemeteries', data);
-export const updateCemetery = (id: number, data: object) => patch(`/cemeteries/${id}`, data);
-export const deleteCemetery = (id: number) => del(`/cemeteries/${id}`);
+export const getCemeteries = async () => {
+  const { data, error } = await supabase
+    .from('cemeteries')
+    .select('*, visits(*)');
+  if (error) throw error;
+  return data;
+};
 
-// ─── VISITAS (guardadas dentro del cementerio) ───────────────────────────────
+export const getCemeteryById = async (id: string) => {
+  const { data, error } = await supabase
+    .from('cemeteries')
+    .select('*, visits(*)')
+    .eq('id', id)
+    .single();
+  if (error) throw error;
+  return data;
+};
 
-/** Agrega una visita a un cementerio existente */
-export const addVisit = async (cemeteryId: number, visit: object) => {
-  const cemetery = await getCemeteryById(cemeteryId);
-  const visits = cemetery.visits || [];
-  const newVisit = { id: Date.now(), ...visit };
-  return patch(`/cemeteries/${cemeteryId}`, { visits: [newVisit, ...visits] });
+export const createCemetery = async (data: any) => {
+  const { data: record, error } = await supabase
+    .from('cemeteries')
+    .insert([data])
+    .select()
+    .single();
+  if (error) throw error;
+  return record;
+};
+
+export const updateCemetery = async (id: string, data: any) => {
+  const { data: record, error } = await supabase
+    .from('cemeteries')
+    .update(data)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return record;
+};
+
+export const deleteCemetery = async (id: string) => {
+  const { error } = await supabase
+    .from('cemeteries')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+  return true;
+};
+
+// ─── VISITAS ────────────────────────────────────────────────────────────────
+
+export const addVisit = async (cemeteryId: string, visit: any) => {
+  const { data, error } = await supabase
+    .from('visits')
+    .insert([{ ...visit, cemeteryId: cemeteryId }])
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
 };
 
 // ─── CONTACTOS ──────────────────────────────────────────────────────────────
 
-export const getContacts = () => get('/contacts');
-export const createContact = (data: object) => post('/contacts', data);
-export const updateContact = (id: number, data: object) => patch(`/contacts/${id}`, data);
+export const getContacts = async () => {
+  const { data, error } = await supabase
+    .from('contacts')
+    .select('*');
+  if (error) throw error;
+  return data;
+};
+
+export const createContact = async (data: any) => {
+  const { data: record, error } = await supabase
+    .from('contacts')
+    .insert([data])
+    .select()
+    .single();
+  if (error) throw error;
+  return record;
+};
+
+export const updateContact = async (id: string, data: any) => {
+  const { data: record, error } = await supabase
+    .from('contacts')
+    .update(data)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return record;
+};
