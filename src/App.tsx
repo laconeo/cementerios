@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as api from './api/db';
 import * as auth from './api/auth';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import { motion, AnimatePresence } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Tooltip, Popup } from 'react-leaflet';
 import L from 'leaflet';
@@ -33,6 +35,21 @@ const COUNTRY_DATA = [
   { name: "Colombia", prefix: "+57" },
   { name: "Ecuador", prefix: "+593" },
 ];
+
+/**
+ * Formatea una fecha de YYYY-MM-DD o ISO a DD/MM/YYYY
+ */
+const formatDisplayDate = (dateStr: string | null | undefined) => {
+  if (!dateStr || dateStr === "") return "No definida";
+  // Si viene con T (ISO), tomamos la parte de la fecha
+  const onlyDate = dateStr.includes("T") ? dateStr.split("T")[0] : dateStr;
+  const parts = onlyDate.split("-");
+  if (parts.length === 3) {
+    const [y, m, d] = parts;
+    return `${d}/${m}/${y}`;
+  }
+  return dateStr;
+};
 
 // Custom Leaflet Icon matching FamilySearch green
 const getCustomIcon = (color: string) => new L.DivIcon({
@@ -452,7 +469,7 @@ const LoginScreen = ({ onLogin, onRegister }: { onLogin: (e: string, p: string) 
 
 const Layout = ({ children, currentView, setCurrentView, onLogout }: any) => {
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--color-fs-bg-alt)] font-sans">
+    <div className="min-h-screen flex flex-col bg-[var(--color-fs-bg-alt)] font-sans print:min-h-0 print:h-auto print:block print:bg-white">
       {/* Top Navbar */}
       <nav className="glass-panel text-[var(--color-fs-text)] shadow-sm sticky top-0 z-40 border-b border-[var(--color-fs-border)] print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -484,6 +501,12 @@ const Layout = ({ children, currentView, setCurrentView, onLogout }: any) => {
                 >
                   Misioneros
                 </button>
+                <button 
+                  onClick={() => setCurrentView('reports')}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${currentView === 'reports' ? 'bg-[var(--color-primary-50)] text-[var(--color-primary-700)]' : 'text-[var(--color-fs-text-secondary)] hover:bg-[var(--color-fs-bg-alt)] hover:text-[var(--color-primary)]'}`}
+                >
+                  Informes
+                </button>
               </div>
             </div>
 
@@ -503,7 +526,7 @@ const Layout = ({ children, currentView, setCurrentView, onLogout }: any) => {
       </nav>
 
       {/* Main Content */}
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto">
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto print:overflow-visible print:p-0 print:block">
         <motion.div 
           key={currentView}
           initial={{ opacity: 0, y: 10 }}
@@ -516,7 +539,7 @@ const Layout = ({ children, currentView, setCurrentView, onLogout }: any) => {
       </main>
 
       {/* Footer */}
-      <footer className="py-6 text-center text-sm text-[var(--color-fs-text-secondary)] border-t border-[var(--color-fs-border)]">
+      <footer className="py-6 text-center text-sm text-[var(--color-fs-text-secondary)] border-t border-[var(--color-fs-border)] print:hidden">
         © 2026 Hecho con ❤️ para proveer apoyo al usuario
       </footer>
     </div>
@@ -914,8 +937,8 @@ const CemeteryListScreen = ({ onOpenDetail, onNewCemetery, initialFilterStage, c
                       {stages[cem.stage].name} (E{cem.stage})
                     </span>
                   </td>
-                  <td className="p-5 text-[var(--color-fs-text-secondary)] whitespace-nowrap">{cem.entryDate}</td>
-                  <td className="p-5 text-[var(--color-fs-text-secondary)] whitespace-nowrap">{cem.lastContactDate}</td>
+                  <td className="p-5 text-[var(--color-fs-text-secondary)] whitespace-nowrap">{formatDisplayDate(cem.entryDate)}</td>
+                  <td className="p-5 text-[var(--color-fs-text-secondary)] whitespace-nowrap">{formatDisplayDate(cem.lastContactDate)}</td>
                   <td className="p-5">
                     <div className="font-medium text-[var(--color-fs-text)]">{cem.missionary}</div>
                     <div className="text-xs text-[var(--color-fs-text-secondary)]">{cem.missionaryEmail}</div>
@@ -1343,6 +1366,7 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
   const cemetery = cemeteries.find((c: any) => c.id === id) || cemeteries[0];
   const [currentStage, setCurrentStage] = useState(cemetery.stage);
   const [visits, setVisits] = useState(cemetery.visits || []);
+  const reportRef = useRef<HTMLDivElement>(null);
   
   // Sincronizar visitas cuando cambia el cementerio (por recargas de API)
   useEffect(() => {
@@ -1366,6 +1390,157 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
   const [readyForVisitDate, setReadyForVisitDate] = useState(cemetery.readyForVisitDate || '');
   const [managerNotifiedDate, setManagerNotifiedDate] = useState(cemetery.managerNotifiedDate || '');
   const [managerNotifiedName, setManagerNotifiedName] = useState(cemetery.managerNotifiedName || '');
+  const [isDigitizationConfirmed, setIsDigitizationConfirmed] = useState(false);
+
+  const handleGeneratePDF = async () => {
+    if (showToast) showToast('Generando reporte ejecutivo PDF...');
+    
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = 210;
+      let y = 20;
+
+      // --- Estilos Base ---
+      const primaryColor = [79, 70, 229]; // Indigo/Primary
+      const textColor = [31, 41, 55]; // Gray 800
+      const lightGray = [243, 244, 246]; // Gray 100
+      
+      // --- Encabezado ---
+      pdf.setFillColor(0, 0, 0);
+      pdf.rect(15, y, 180, 2, 'F');
+      y += 10;
+      
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(22);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text('FAMILYSEARCH', 15, y);
+      
+      pdf.setFontSize(8);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text('DEPARTAMENTO DE RELACIONES INSTITUCIONALES (GRI)', 15, y + 5);
+      
+      pdf.setFontSize(8);
+      pdf.setTextColor(150, 150, 150);
+      pdf.text('DOCUMENTO CONFIDENCIAL / INFORME EJECUTIVO', 130, y);
+      pdf.text(`GENERADO: ${formatDisplayDate(new Date().toISOString().split('T')[0])}`, 130, y + 4);
+      
+      y += 20;
+
+      // --- Título del Proyecto ---
+      pdf.setDrawColor(0, 0, 0);
+      pdf.setLineWidth(0.5);
+      pdf.line(15, y, 195, y);
+      y += 10;
+      
+      pdf.setFontSize(18);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(cemetery.name.toUpperCase(), 15, y);
+      y += 8;
+      
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'italic');
+      pdf.setTextColor(100, 100, 100);
+      pdf.text('Resumen consolidado para la toma de decisiones institucionales', 15, y);
+      y += 15;
+
+      // --- Secciones I y II (Grid-like) ---
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(11);
+      pdf.setTextColor(0, 0, 0);
+      
+      // I. Datos
+      pdf.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
+      pdf.rect(15, y, 85, 6, 'F');
+      pdf.text('I. DATOS DE CONTACTO', 17, y + 4.5);
+      
+      // II. Registros (Explicitly reset fill color to lightGray)
+      pdf.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
+      pdf.rect(110, y, 85, 6, 'F');
+      pdf.text('II. RELEVAMIENTO TÉCNICO', 112, y + 4.5);
+      
+      y += 12;
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+      pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
+      
+      // Contenido I
+      const startYContent = y;
+      pdf.text(`Dirección: ${cemetery.address || cemetery.city || '-'}`, 15, y);
+      y += 6;
+      pdf.text(`Administración: ${cemetery.adminType || 'Municipal'}`, 15, y);
+      y += 6;
+      pdf.text(`Referente: ${cemetery.contactName || 'No registrado'}`, 15, y);
+      y += 6;
+      pdf.text(`Cargo: ${cemetery.contactPosition || '-'}`, 15, y);
+      y += 6;
+      pdf.text(`Interés: ${cemetery.contactInterestLevel || 'Medio'}`, 15, y);
+      
+      // Contenido II
+      y = startYContent;
+      pdf.text(`Est. Actas: ${cemetery.estimatedRecords || '---'}`, 110, y);
+      y += 6;
+      pdf.text(`Cant. Libros: ${cemetery.numberOfBooks || '---'}`, 110, y);
+      y += 6;
+      pdf.text(`Cronología: ${cemetery.dateRangeFrom || '-'} al ${cemetery.dateRangeTo || '-'}`, 110, y);
+      y += 6;
+      pdf.text(`Previo FS: ${cemetery.fsAlreadyDigitized ? 'SÍ (REVISAR)' : 'NO (NUEVO)'}`, 110, y);
+      
+      y = Math.max(y, startYContent + 30) + 10;
+
+      // --- III. Planificación ---
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
+      pdf.rect(15, y, 180, 6, 'F');
+      pdf.text('III. PLANIFICACIÓN INSTITUCIONAL', 17, y + 4.5);
+      
+      y += 12;
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Responsable FS: ${managerNotifiedName || 'No definido'}`, 15, y);
+      pdf.text(`Disponibilidad: ${readyForVisitDate ? formatDisplayDate(readyForVisitDate) : '-'}`, 110, y);
+      y += 6;
+      pdf.text(`Notificación GRI: ${managerNotifiedDate ? formatDisplayDate(managerNotifiedDate) : '-'}`, 15, y);
+      pdf.text(`Estado Misión: CITA INSTITUCIONAL PENDIENTE`, 110, y);
+      
+      y += 15;
+
+      // --- IV. Bitácora (Anexo) ---
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('APÉNDICE: BITÁCORA DE GESTIONES', 15, y);
+      y += 4;
+      pdf.setLineWidth(0.2);
+      pdf.line(15, y, 195, y);
+      y += 8;
+      
+      pdf.setFontSize(8);
+      const sortedVisits = [...visits].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10);
+      
+      sortedVisits.forEach((visit: any) => {
+        if (y > 270) { pdf.addPage(); y = 20; }
+        
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(`${formatDisplayDate(visit.date)} - ${visit.missionary}`, 15, y);
+        y += 4;
+        pdf.setFont('helvetica', 'normal');
+        const lines = pdf.splitTextToSize(`${visit.contact}: ${visit.notes || 'Sin notas'}`, 170);
+        pdf.text(lines, 20, y);
+        y += (lines.length * 4) + 4;
+      });
+
+      // --- Footer ---
+      pdf.setFontSize(7);
+      pdf.setTextColor(150, 150, 150);
+      pdf.text('Este documento es confidencial y para uso interno exclusivo de FamilySearch.', 105, 285, { align: 'center' });
+      pdf.text('Generado automáticamente por el Sistema Oportunidades Cementerios.', 105, 289, { align: 'center' });
+
+      const fileName = `Informe_${cemetery.name.substring(0, 15).replace(/\s+/g, '_')}.pdf`;
+      pdf.save(fileName);
+      
+      if (showToast) showToast('¡Reporte PDF ejecutivo generado!');
+    } catch (err: any) {
+      console.error('Error al generar PDF:', err);
+      if (showToast) showToast('Error: Revisar consola', 'error');
+    }
+  };
 
   const [stage1Data, setStage1Data] = useState({
     contactName: cemetery.contactName || '',
@@ -1383,6 +1558,15 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
     dateRangeTo: cemetery.dateRangeTo || ''
   });
 
+  const [stage5Data, setStage5Data] = useState({
+    drrRecipient: cemetery.drrRecipient || '',
+    drrDeliveryDate: cemetery.drrDeliveryDate || '',
+    trainingRecipient: cemetery.trainingRecipient || '',
+    trainingDate: cemetery.trainingDate || '',
+    postSaleNotes: cemetery.postSaleNotes || '',
+    processCompleted: cemetery.processCompleted || false
+  });
+
   const handleSaveStageData = () => {
     if (onUpdateCemetery) {
       // Limpiamos los campos numéricos para evitar errores de sintaxis en PostgreSQL ('' != integer)
@@ -1391,6 +1575,13 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
         numberOfBooks: stage2Data.numberOfBooks === '' ? null : parseInt(String(stage2Data.numberOfBooks)),
         dateRangeFrom: stage2Data.dateRangeFrom === '' ? null : parseInt(String(stage2Data.dateRangeFrom)),
         dateRangeTo: stage2Data.dateRangeTo === '' ? null : parseInt(String(stage2Data.dateRangeTo))
+      };
+
+      // Limpiamos los campos de fecha de etapa 5 para evitar errores SQL ("" != NULL)
+      const cleanStage5Data = {
+        ...stage5Data,
+        drrDeliveryDate: stage5Data.drrDeliveryDate === '' ? null : stage5Data.drrDeliveryDate,
+        trainingDate: stage5Data.trainingDate === '' ? null : stage5Data.trainingDate
       };
 
       onUpdateCemetery(cemetery.id, {
@@ -1405,6 +1596,7 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
         readyForVisitDate: readyForVisitDate === '' ? null : readyForVisitDate,
         managerNotifiedDate: managerNotifiedDate === '' ? null : managerNotifiedDate,
         managerNotifiedName,
+        ...cleanStage5Data, // Persistir datos de postventa saneados
         stage: currentStage // Sincronizar la etapa actual con la base de datos al guardar
       });
       if (showToast) showToast('Borrador guardado exitosamente');
@@ -1450,15 +1642,8 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
       return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
 
-    // Helper para formato limpio DD/MM/AAAA sin líos de zona horaria
-    const formatCleanDate = (dateStr: string) => {
-      if (!dateStr) return '';
-      // Si viene con T (ISO), tomamos la parte de la fecha
-      const onlyDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
-      const parts = onlyDate.split('-');
-      if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-      return onlyDate;
-    };
+    // Helper para formato limpio DD/MM/AAAA sin líos de zona horaria (usamos el global)
+    const formatCleanDate = formatDisplayDate;
 
     return (
       <div className="mt-8 pt-6 border-t border-[var(--color-fs-border)] print:border-black print:mt-6 print:pt-4">
@@ -1479,7 +1664,17 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-xs font-bold mb-1 text-[var(--color-fs-text)]">Fecha *</label>
-              <input type="date" value={newVisit.date} onChange={e => setNewVisit({...newVisit, date: e.target.value})} className="w-full text-sm p-2 bg-[var(--color-fs-bg)] border-[var(--color-fs-border)]" />
+              <div className="relative">
+                <input 
+                  type="date" 
+                  value={newVisit.date} 
+                  onChange={e => setNewVisit({...newVisit, date: e.target.value})} 
+                  className="w-full text-sm p-2 bg-[var(--color-fs-bg)] text-transparent border-[var(--color-fs-border)] focus:text-transparent appearance-none" 
+                />
+                <div className="absolute inset-y-[1px] left-[1px] right-10 pl-3 flex items-center pointer-events-none text-xs text-[var(--color-fs-text)] bg-[var(--color-fs-bg)] rounded-l-lg">
+                  {newVisit.date ? formatDisplayDate(newVisit.date) : <span className="text-[var(--color-fs-text-secondary)] italic">dd/mm/aaaa</span>}
+                </div>
+              </div>
             </div>
             <div>
               <label className="block text-xs font-bold mb-1 text-[var(--color-fs-text)]">Tipo *</label>
@@ -1527,7 +1722,7 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
           <p className="text-sm text-[var(--color-fs-text-secondary)] italic text-center py-4 print:text-left print:py-1">No hay contactos registrados aún.</p>
         ) : (
           sortedVisits.map((visit: any) => (
-            <div key={visit.id} className="bg-[var(--color-fs-bg-alt)] border border-[var(--color-fs-border)] p-4 rounded-xl shadow-sm print:bg-transparent print:border-b print:border-gray-300 print:rounded-none print:shadow-none print:p-2 print:mb-2">
+            <div key={visit.id} className="bg-[var(--color-fs-bg-alt)] border border-[var(--color-fs-border)] p-4 rounded-xl shadow-sm break-inside-avoid print:bg-transparent print:border-b print:border-gray-300 print:rounded-none print:shadow-none print:p-2 print:mb-4">
               <div className="flex justify-between items-start mb-2 print:mb-1">
                 <div className="flex items-center space-x-2 flex-wrap gap-y-2">
                   <span className="font-bold text-[var(--color-fs-text)] print:text-black">{formatCleanDate(visit.date)}</span>
@@ -1618,16 +1813,31 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
               </h3>
               <p className="text-[var(--color-fs-text-secondary)] mt-1">{stages[currentStage].desc}</p>
             </div>
-            {currentStage < stages.length - 1 && (
+            {(currentStage < stages.length - 1 || currentStage === 5) && (
               <button 
                 onClick={() => {
-                  const nextStage = currentStage + 1;
-                  setCurrentStage(nextStage);
-                  if (onUpdateCemetery) onUpdateCemetery(cemetery.id, { stage: nextStage });
+                  if (currentStage === 4 && !isDigitizationConfirmed) {
+                    if (showToast) showToast('Debes confirmar que la digitalización ha finalizado antes de continuar', 'error');
+                    return;
+                  }
+                  if (currentStage === 5 && !stage5Data.processCompleted) {
+                    if (showToast) showToast('Debes marcar el proceso como finalizado para concluir el proyecto', 'error');
+                    return;
+                  }
+                  
+                  if (currentStage < stages.length - 1) {
+                    const nextStage = currentStage + 1;
+                    setCurrentStage(nextStage);
+                    if (onUpdateCemetery) onUpdateCemetery(cemetery.id, { stage: nextStage });
+                  } else {
+                    // Acción final para Etapa 5
+                    handleSaveStageData();
+                    if (showToast) showToast('¡Proyecto finalizado exitosamente!', 'success');
+                  }
                 }} 
-                className="btn-primary shadow-md print:hidden"
+                className={`btn-primary shadow-md print:hidden ${(currentStage === 4 && !isDigitizationConfirmed) || (currentStage === 5 && !stage5Data.processCompleted) ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                Completar Etapa
+                {currentStage === 5 ? 'Finalizar Proyecto' : 'Completar Etapa'}
               </button>
             )}
           </div>
@@ -1804,103 +2014,117 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
             )}
 
             {currentStage === 3 && (
-              <div className="space-y-8 print:space-y-4">
-                <div className="bg-purple-50 border border-purple-200 text-purple-800 dark:bg-purple-900/30 dark:border-purple-800 dark:text-purple-200 p-5 rounded-xl mb-6 flex items-start space-x-3 print:hidden">
-                  <AlertCircle className="flex-shrink-0 mt-0.5" size={24} />
-                  <div>
-                    <h4 className="font-bold text-lg">Intervención de Gerencia (GRI)</h4>
-                    <p className="text-sm mt-1 font-medium">Esta etapa es crítica. Revise el resumen de las etapas previas, registre las fechas clave y genere el informe imprimible para notificar a los gerentes de relaciones institucionales. Aquí termina el trabajo del misionero en esta fase.</p>
+              <div className="space-y-6">
+                {/* Alert and Button Section (UI Only) */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
+                  <div className="bg-purple-50 border border-purple-200 text-purple-800 dark:bg-purple-900/30 dark:border-purple-800 dark:text-purple-200 p-4 rounded-xl flex items-start space-x-3 flex-1">
+                    <AlertCircle className="flex-shrink-0 mt-0.5" size={20} />
+                    <p className="text-sm font-medium leading-tight">Revise el resumen completo y genere el <b>PDF Ejecutivo</b> para enviar a Gerencia. Este documento consolida todas las etapas previas.</p>
                   </div>
+                  <button 
+                    onClick={handleGeneratePDF} 
+                    className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg flex items-center justify-center space-x-2 shrink-0 hover:scale-105"
+                  >
+                    <Printer size={18} />
+                    <span>Generar Reporte PDF</span>
+                  </button>
                 </div>
 
-                {/* Resumen para Imprimir */}
-                <div className="bg-[var(--color-fs-bg)] p-8 rounded-2xl border border-[var(--color-fs-border)] shadow-sm print:border-none print:shadow-none print:p-0">
-                  <div className="flex justify-between items-center mb-6 border-b border-[var(--color-fs-border)] pb-4 print:border-black">
-                    <h2 className="text-2xl font-bold text-[var(--color-fs-text)] print:text-black">Resumen Ejecutivo: {cemetery.name}</h2>
-                    <button onClick={() => window.print()} className="print:hidden flex items-center space-x-2 bg-[var(--color-fs-bg-alt)] hover:bg-[var(--color-fs-border)] text-[var(--color-fs-text)] px-4 py-2 rounded-lg transition-colors font-bold border border-[var(--color-fs-border)]">
-                      <Printer size={18} />
-                      <span>Imprimir Informe</span>
-                    </button>
-                  </div>
-
-                  {/* Datos Etapa 0 y 1 */}
-                  <div className="mb-6">
-                    <h3 className="text-lg font-bold text-[var(--color-primary)] mb-3 print:text-black">1. Datos de Contacto y Ubicación</h3>
-                    <div className="grid grid-cols-2 gap-4 text-sm text-[var(--color-fs-text)]">
-                      <div><span className="font-bold">Dirección:</span> {cemetery.address || cemetery.location || `${cemetery.city}, ${cemetery.province}`}</div>
-                      <div><span className="font-bold">Administración:</span> {cemetery.adminType || 'Municipal'}</div>
-                      <div><span className="font-bold">Contacto Principal:</span> {cemetery.contactName || 'No registrado'}</div>
-                      <div><span className="font-bold">Cargo:</span> {cemetery.contactPosition || 'No registrado'}</div>
-                      <div><span className="font-bold">Teléfono:</span> {cemetery.contactPhone || 'No registrado'}</div>
-                      <div><span className="font-bold">Email:</span> {cemetery.contactEmail || 'No registrado'}</div>
-                      <div><span className="font-bold">Nivel de Interés:</span> {cemetery.contactInterestLevel || 'No registrado'}</div>
-                      <div><span className="font-bold">Convenio Previo FS:</span> {cemetery.previousFsAgreement || 'No registrado'}</div>
+                {/* THE DOCUMENT AREA (This is captured by jspdf) */}
+                <div ref={reportRef} className="bg-white p-8 md:p-12 rounded-none md:rounded-2xl border-none md:border border-[var(--color-fs-border)] shadow-none md:shadow-sm text-black">
+                  {/* Institutional Header */}
+                  <div className="flex justify-between items-start border-b-2 border-black pb-6 mb-8">
+                    <div>
+                      <h1 className="text-3xl font-black uppercase tracking-tighter text-black">FamilySearch</h1>
+                      <p className="text-sm font-bold text-gray-800">Departamento de Relaciones Institucionales (GRI)</p>
+                      <p className="text-xs text-gray-600 mt-1 uppercase tracking-widest font-medium">Informe Ejecutivo de Priorización de Proyectos</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="bg-black text-white px-3 py-1 text-[10px] font-bold uppercase tracking-widest mb-2 inline-block">Confidencial</div>
+                      <p className="text-xs text-black font-semibold">Generado: {formatDisplayDate(new Date().toISOString().split('T')[0])}</p>
+                      <p className="text-[10px] text-gray-500 mt-1 uppercase">ID: {cemetery.id.substring(0,8)}</p>
                     </div>
                   </div>
 
-                  {/* Datos Etapa 2 */}
-                  <div className="mb-6">
-                    <h3 className="text-lg font-bold text-[var(--color-primary)] mb-3 print:text-black">2. Estado de los Registros</h3>
-                    <div className="grid grid-cols-2 gap-4 text-sm text-[var(--color-fs-text)]">
-                      <div><span className="font-bold">Cant. est. actas:</span> {cemetery.estimatedRecords || 'No registrado'}</div>
-                      <div><span className="font-bold">Cant. libros:</span> {cemetery.numberOfBooks || 'No registrado'}</div>
-                      <div><span className="font-bold">Rango de fechas:</span> {cemetery.dateRangeFrom || '-'} al {cemetery.dateRangeTo || '-'}</div>
-                      <div className="col-span-2 mt-2">
-                        <span className="font-bold">Digitalización previa por FamilySearch:</span> 
-                        <span className={`ml-2 font-bold ${fsAlreadyDigitized ? 'text-[var(--color-fs-green)]' : 'text-[var(--color-fs-text)]'}`}>{fsAlreadyDigitized ? 'SÍ' : 'NO'}</span>
+                  <div className="mb-10 text-center">
+                    <h2 className="text-2xl font-bold text-black border-b-4 border-black inline-block pb-1 uppercase">{cemetery.name}</h2>
+                    <p className="text-sm text-gray-600 mt-2 italic">Resumen consolidado para la toma de decisiones institucionales</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    {/* Section 1 */}
+                    <div className="space-y-4">
+                      <div className="border-l-4 border-black pl-3 py-1 bg-gray-50">
+                        <h3 className="text-sm font-black uppercase text-black">I. Datos de Contacto y Ubicación</h3>
                       </div>
-                      
-                      {fsAlreadyDigitized && (
-                        <div className="col-span-2 grid grid-cols-2 gap-y-3 gap-x-8 bg-[var(--color-fs-bg-alt)] p-4 rounded-lg border border-[var(--color-fs-border)] mt-2 print:bg-transparent print:border-black">
-                          <div><span className="font-bold">Fecha de digitalización:</span> {digitizationDate || 'No especificada'}</div>
-                          <div><span className="font-bold">Colección:</span> {collectionName || 'No especificada'}</div>
-                          <div><span className="font-bold">Periodos:</span> {digitizedPeriods || 'No especificados'}</div>
-                          <div><span className="font-bold">Estado actual:</span> {imageUsageStatus.replace('_', ' ') || 'No especificado'}</div>
-                          <div className="col-span-2"><span className="font-bold">Solicitud de la institución:</span> {imageRequest.replace('_', ' ') || 'No especificada'}</div>
-                        </div>
-                      )}
+                      <div className="grid grid-cols-1 gap-2 text-sm">
+                        <div className="flex border-b border-gray-100 py-1"><span className="font-bold w-32 shrink-0 text-gray-700">Dirección:</span> <span>{cemetery.address || cemetery.location || `${cemetery.city}, ${cemetery.province}`}</span></div>
+                        <div className="flex border-b border-gray-100 py-1"><span className="font-bold w-32 shrink-0 text-gray-700">Jurisdicción:</span> <span>{cemetery.adminType || 'Municipal'}</span></div>
+                        <div className="flex border-b border-gray-100 py-1"><span className="font-bold w-32 shrink-0 text-gray-700">Referente:</span> <span>{cemetery.contactName || 'No registrado'}</span></div>
+                        <div className="flex border-b border-gray-100 py-1"><span className="font-bold w-32 shrink-0 text-gray-700">Cargo:</span> <span>{cemetery.contactPosition || 'No registrado'}</span></div>
+                        <div className="flex border-b border-gray-100 py-1"><span className="font-bold w-32 shrink-0 text-gray-700">Interés:</span> <span className="font-bold uppercase text-purple-700">{cemetery.contactInterestLevel || 'No registrado'}</span></div>
+                      </div>
                     </div>
+
+                    {/* Section 2 */}
+                    <div className="space-y-4">
+                      <div className="border-l-4 border-black pl-3 py-1 bg-gray-50">
+                        <h3 className="text-sm font-black uppercase text-black">II. Relevamiento de Registros</h3>
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 text-sm">
+                        <div className="flex border-b border-gray-100 py-1"><span className="font-bold w-32 shrink-0 text-gray-700">Est. Actas:</span> <span className="font-mono font-bold">{cemetery.estimatedRecords || '---'}</span></div>
+                        <div className="flex border-b border-gray-100 py-1"><span className="font-bold w-32 shrink-0 text-gray-700">Cant. Libros:</span> <span className="font-mono font-bold">{cemetery.numberOfBooks || '---'}</span></div>
+                        <div className="flex border-b border-gray-100 py-1"><span className="font-bold w-32 shrink-0 text-gray-700">Cronología:</span> <span>{cemetery.dateRangeFrom || '-'} al {cemetery.dateRangeTo || '-'}</span></div>
+                        <div className="flex border-b border-gray-100 py-1"><span className="font-bold w-32 shrink-0 text-gray-700">Previo FS:</span> <span className="font-bold">{fsAlreadyDigitized ? 'SÍ (REVISAR)' : 'NO (NUEVO)'}</span></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 3 */}
+                  <div className="mt-10 space-y-4">
+                    <div className="border-l-4 border-black pl-3 py-1 bg-gray-50">
+                      <h3 className="text-sm font-black uppercase text-black">III. Planificación Institucional (Etapa 3)</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-4 text-sm bg-gray-50 p-6 rounded-xl border border-gray-200">
+                      <div>
+                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">Responsable FS Notificado</label>
+                        <p className="font-bold text-gray-900 border-b border-gray-300 pb-1">{managerNotifiedName || 'No definido'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">Disponibilidad del Contacto</label>
+                        <p className="font-bold text-gray-900 border-b border-gray-300 pb-1">{formatDisplayDate(readyForVisitDate)}</p>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">Fecha de Notificación GRI</label>
+                        <p className="font-bold text-gray-900 border-b border-gray-300 pb-1">{formatDisplayDate(managerNotifiedDate)}</p>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">Estado de la Misión</label>
+                        <p className="font-bold text-purple-700 border-b border-purple-300 pb-1 uppercase">Cita Institucional Pendiente</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bitácora / Anexo */}
+                  <div className="mt-12 break-before-page">
+                    <div className="border-b-2 border-black pb-2 mb-6">
+                      <h3 className="text-lg font-black uppercase text-black">Apéndice: Bitácora de Gestiones</h3>
+                      <p className="text-xs text-gray-500">Historial de acercamiento y contactos realizados por el equipo de misioneros</p>
+                    </div>
+                    {renderVisitLog()}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="mt-16 pt-8 border-t border-gray-200 text-center">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold italic">Este documento ha sido generado automáticamente por el Sistema OC Oportunidades Cementerios. Todos los derechos reservados © 2026.</p>
                   </div>
                 </div>
 
-                {/* El botón de guardar aquí era redundante y confuso, lo quitamos para centralizarlo al final de la sección de Gerencia */}
-
-                {/* Fechas Clave Etapa 3 */}
-                <div className="bg-[var(--color-fs-bg-alt)] p-6 rounded-xl border border-[var(--color-fs-border)] print:bg-transparent print:border-black print:p-0 print:mt-6">
-                  <h3 className="text-lg font-bold text-[var(--color-fs-text)] mb-4 print:text-black">3. Coordinación con Gerencia</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 print:grid-cols-2">
-                    <div>
-                      <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)] print:text-black">Contacto de Etapa 1 <span className="text-xs font-normal text-[var(--color-fs-text-secondary)]">(Persona que puede tomar la decisión)</span></label>
-                      <input type="text" value={cemetery.contactName || 'No registrado'} disabled className="w-full bg-[var(--color-fs-bg-alt)] text-[var(--color-fs-text-secondary)] border-[var(--color-fs-border)] print:hidden" />
-                      <div className="hidden print:block text-sm text-black">{cemetery.contactName || 'No registrado'}</div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)] print:text-black">Responsable de FS Notificado</label>
-                      <input type="text" placeholder="Nombre del responsable" value={managerNotifiedName} onChange={e => setManagerNotifiedName(e.target.value)} className="w-full bg-[var(--color-fs-bg)] text-[var(--color-fs-text)] border-[var(--color-fs-border)] print:hidden" />
-                      <div className="hidden print:block text-sm text-black">{managerNotifiedName || 'No definido'}</div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)] print:text-black">Fecha en que el contacto está listo para recibir visita</label>
-                      <input type="date" value={readyForVisitDate} onChange={e => setReadyForVisitDate(e.target.value)} className="w-full bg-[var(--color-fs-bg)] text-[var(--color-fs-text)] border-[var(--color-fs-border)] print:hidden" />
-                      <div className="hidden print:block text-sm text-black">{readyForVisitDate ? new Date(readyForVisitDate).toLocaleDateString() : 'No definida'}</div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)] print:text-black">Fecha de Aviso al Responsable de FS</label>
-                      <input type="date" value={managerNotifiedDate} onChange={e => setManagerNotifiedDate(e.target.value)} className="w-full bg-[var(--color-fs-bg)] text-[var(--color-fs-text)] border-[var(--color-fs-border)] print:hidden" />
-                      <div className="hidden print:block text-sm text-black">{managerNotifiedDate ? new Date(managerNotifiedDate).toLocaleDateString() : 'No definida'}</div>
-                    </div>
-                  </div>
-                  <div className="mt-8 flex justify-end">
-                    <button type="button" onClick={handleSaveStageData} className="btn-primary py-3 px-8 text-sm flex items-center space-x-2 shadow-lg hover:scale-105 transition-transform">
+                <div className="flex justify-center print:hidden">
+                   <button type="button" onClick={handleSaveStageData} className="btn-primary py-3 px-12 text-sm flex items-center space-x-2 shadow-xl bg-purple-700 hover:bg-purple-800">
                       <Save size={18} />
-                      <span>Guardar Borrador de Gerencia</span>
+                      <span>Sincronizar Cambios con la Base de Datos</span>
                     </button>
-                  </div>
-                </div>
-
-                {/* Render Visit Log (Interactive, but also prints the list) */}
-                <div>
-                  {renderVisitLog()}
                 </div>
               </div>
             )}
@@ -1916,7 +2140,12 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
                     <p className="mt-2 max-w-md mx-auto font-medium text-[var(--color-fs-text-secondary)]">Esta etapa no depende de tu departamento. Marca esta casilla únicamente cuando el equipo de cámaras haya confirmado que la captura de imágenes ha finalizado.</p>
                   </div>
                   <label className="flex items-center space-x-3 cursor-pointer bg-[var(--color-fs-bg)] px-6 py-4 rounded-xl shadow-sm border border-[var(--color-fs-border)] hover:bg-[var(--color-primary-50)] hover:border-[var(--color-primary-100)] transition-colors mt-4">
-                    <input type="checkbox" className="rounded text-[var(--color-primary)] focus:ring-[var(--color-primary)] w-6 h-6 border-[var(--color-fs-border)]" />
+                    <input 
+                      type="checkbox" 
+                      checked={isDigitizationConfirmed}
+                      onChange={(e) => setIsDigitizationConfirmed(e.target.checked)}
+                      className="rounded text-[var(--color-primary)] focus:ring-[var(--color-primary)] w-6 h-6 border-[var(--color-fs-border)]" 
+                    />
                     <span className="font-bold text-lg text-[var(--color-secondary)]">Confirmar Digitalización Completada</span>
                   </label>
                 </div>
@@ -1940,30 +2169,62 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Persona que recibió el DRR</label>
-                    <input type="text" placeholder="Ej. Juan Pérez" className="w-full bg-[var(--color-fs-bg)]" />
+                    <input type="text" placeholder="Ej. Juan Pérez" value={stage5Data.drrRecipient} onChange={e => setStage5Data({...stage5Data, drrRecipient: e.target.value})} className="w-full bg-[var(--color-fs-bg)] border-[var(--color-fs-border)]" />
                   </div>
                   <div>
                     <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Fecha de entrega de DRR</label>
-                    <input type="date" className="w-full bg-[var(--color-fs-bg)]" />
+                    <div className="relative">
+                      <input 
+                        type="date" 
+                        value={stage5Data.drrDeliveryDate} 
+                        onChange={e => setStage5Data({...stage5Data, drrDeliveryDate: e.target.value})} 
+                        className="w-full text-sm p-2 bg-[var(--color-fs-bg)] text-transparent border-[var(--color-fs-border)] focus:text-transparent appearance-none" 
+                      />
+                      <div className="absolute inset-y-[1px] left-[1px] right-10 pl-3 flex items-center pointer-events-none text-sm text-[var(--color-fs-text)] bg-[var(--color-fs-bg)] rounded-l-lg font-medium">
+                        {stage5Data.drrDeliveryDate ? formatDisplayDate(stage5Data.drrDeliveryDate) : <span className="text-[var(--color-fs-text-secondary)] italic">dd/mm/aaaa</span>}
+                      </div>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Nombre de la persona que recibió la capacitación</label>
-                    <input type="text" placeholder="Ej. María Gómez" className="w-full bg-[var(--color-fs-bg)]" />
+                    <input type="text" placeholder="Ej. María Gómez" value={stage5Data.trainingRecipient} onChange={e => setStage5Data({...stage5Data, trainingRecipient: e.target.value})} className="w-full bg-[var(--color-fs-bg)] border-[var(--color-fs-border)]" />
                   </div>
                   <div>
                     <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Fecha de Capacitación</label>
-                    <input type="date" className="w-full bg-[var(--color-fs-bg)]" />
+                    <div className="relative">
+                      <input 
+                        type="date" 
+                        value={stage5Data.trainingDate} 
+                        onChange={e => setStage5Data({...stage5Data, trainingDate: e.target.value})} 
+                        className="w-full text-sm p-2 bg-[var(--color-fs-bg)] text-transparent border-[var(--color-fs-border)] focus:text-transparent appearance-none" 
+                      />
+                      <div className="absolute inset-y-[1px] left-[1px] right-10 pl-3 flex items-center pointer-events-none text-sm text-[var(--color-fs-text)] bg-[var(--color-fs-bg)] rounded-l-lg font-medium">
+                        {stage5Data.trainingDate ? formatDisplayDate(stage5Data.trainingDate) : <span className="text-[var(--color-fs-text-secondary)] italic">dd/mm/aaaa</span>}
+                      </div>
+                    </div>
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Resolución de dudas / Notas de Postventa</label>
-                    <textarea rows={4} placeholder="¿Qué dudas tuvieron? ¿Cómo fue la recepción del programa?"></textarea>
+                    <textarea rows={4} placeholder="¿Qué dudas tuvieron? ¿Cómo fue la recepción del programa?" value={stage5Data.postSaleNotes} onChange={e => setStage5Data({...stage5Data, postSaleNotes: e.target.value})} className="w-full bg-[var(--color-fs-bg)] border-[var(--color-fs-border)]"></textarea>
                   </div>
                   <div className="md:col-span-2 bg-[var(--color-fs-bg-alt)] p-4 rounded-xl border border-[var(--color-fs-border)]">
                     <label className="flex items-center space-x-3 cursor-pointer">
-                      <input type="checkbox" className="rounded text-[var(--color-primary)] focus:ring-[var(--color-primary)] w-5 h-5 border-[var(--color-fs-border)]" />
+                      <input 
+                        type="checkbox" 
+                        checked={stage5Data.processCompleted}
+                        onChange={e => setStage5Data({...stage5Data, processCompleted: e.target.checked})}
+                        className="rounded text-[var(--color-primary)] focus:ring-[var(--color-primary)] w-5 h-5 border-[var(--color-fs-border)]" 
+                      />
                       <span className="font-bold text-[var(--color-fs-text)]">Proceso completo finalizado exitosamente</span>
                     </label>
                   </div>
+                </div>
+                
+                <div className="flex justify-end pt-4">
+                  <button type="button" onClick={handleSaveStageData} className="btn-secondary flex items-center space-x-2">
+                    <Save size={18} />
+                    <span>Guardar Postventa</span>
+                  </button>
                 </div>
 
                 <div className="mt-8">
@@ -2010,7 +2271,10 @@ export default function App() {
     const subscription = auth.onAuthStateChange((s) => {
       setSession(s);
       if (s) {
-        setCurrentView('dashboard');
+        // Solo redirigir al dashboard si el usuario estaba en Login o Register
+        // Esto evita que al hacer Alt+Tab o refrescar sesión silenciosamente
+        // el usuario sea expulsado de la vista de detalle en la que estaba trabajando.
+        setCurrentView(prev => (prev === 'login' || prev === 'register') ? 'dashboard' : prev);
       } else {
         setCurrentView('login');
       }
@@ -2240,6 +2504,9 @@ export default function App() {
             }}
           />
         )}
+        {currentView === 'reports' && (
+          <ReportsScreen cemeteries={cemeteries} missionaries={missionaries} />
+        )}
       </Layout>
       <ThemeToggle />
       <AnimatePresence>
@@ -2248,3 +2515,188 @@ export default function App() {
     </>
   );
 }
+
+const ReportsScreen = ({ cemeteries, missionaries }: any) => {
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+
+  // Filtrar cementerios por fecha de ingreso
+  const filteredCemeteries = cemeteries.filter((c: any) => {
+    if (!dateFrom && !dateTo) return true;
+    const entryDate = c.entryDate;
+    if (!entryDate) return false;
+    const from = dateFrom || '1900-01-01';
+    const to = dateTo || '2100-12-31';
+    return entryDate >= from && entryDate <= to;
+  });
+
+  const completed = filteredCemeteries.filter((c: any) => c.processCompleted).length;
+  
+  const stageStats = stages.map(s => ({
+    ...s,
+    count: filteredCemeteries.filter((c: any) => c.stage === s.id && !c.processCompleted).length
+  }));
+
+  const totalRecords = filteredCemeteries.reduce((acc: number, c: any) => acc + (c.estimatedRecords || 0), 0);
+  
+  // Agrupación por país
+  const countryStats = COUNTRY_DATA.map(country => ({
+    name: country.name,
+    count: filteredCemeteries.filter((c: any) => c.country === country.name).length
+  })).filter(c => c.count > 0);
+
+  // Rankings de Misioneros (Visitas totales)
+  const missionaryStats = missionaries.map((m: any) => {
+    const visitsCount = filteredCemeteries.reduce((acc: number, c: any) => {
+      const missionaryVisits = (c.visits || []).filter((v: any) => v.missionary === m.name);
+      return acc + missionaryVisits.length;
+    }, 0);
+    return { name: m.name, count: visitsCount };
+  }).sort((a: any, b: any) => b.count - a.count).slice(0, 5);
+
+  return (
+    <div className="space-y-8 animate-slide-up">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div>
+          <h2 className="text-3xl font-bold text-[var(--color-secondary)]">Análisis de Operaciones Nacionales</h2>
+          <p className="text-[var(--color-fs-text-secondary)] mt-1 font-medium tracking-tight">Reporte ejecutivo de productividad e impacto institucional</p>
+        </div>
+        
+        <div className="flex items-center space-x-3 bg-[var(--color-fs-bg)] p-3 rounded-2xl border border-[var(--color-fs-border)] shadow-sm print:hidden">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold text-[var(--color-fs-text-secondary)] uppercase px-1">Desde</span>
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="text-xs p-1 bg-transparent border-none focus:ring-0 text-[var(--color-fs-text)]" />
+          </div>
+          <div className="w-px h-8 bg-[var(--color-fs-border)]"></div>
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold text-[var(--color-fs-text-secondary)] uppercase px-1">Hasta</span>
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="text-xs p-1 bg-transparent border-none focus:ring-0 text-[var(--color-fs-text)]" />
+          </div>
+          <button onClick={() => window.print()} className="bg-[var(--color-primary)] text-white p-2 ml-2 rounded-xl hover:bg-[var(--color-primary-hover)] transition-colors">
+            <Printer size={18} />
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="bg-[var(--color-fs-bg)] p-6 rounded-2xl border border-[var(--color-fs-border)] shadow-sm flex flex-col justify-between h-32">
+          <p className="text-xs font-bold text-[var(--color-fs-text-secondary)] uppercase flex items-center">
+            <Database className="mr-2 opacity-50" size={14} /> Total Proyectos
+          </p>
+          <p className="text-4xl font-bold text-[var(--color-secondary)] tracking-tighter">{filteredCemeteries.length}</p>
+        </div>
+        <div className="bg-[var(--color-fs-bg)] p-6 rounded-2xl border border-[var(--color-fs-border)] shadow-sm border-l-4 border-l-[var(--color-fs-green)] flex flex-col justify-between h-32">
+          <p className="text-xs font-bold text-[var(--color-fs-text-secondary)] uppercase flex items-center">
+            <CheckCircle className="mr-2 text-[var(--color-fs-green)] opacity-50" size={14} /> Finalizados
+          </p>
+          <p className="text-4xl font-bold text-[var(--color-fs-green)] tracking-tighter">{completed}</p>
+        </div>
+        <div className="bg-[var(--color-fs-bg)] p-6 rounded-2xl border border-[var(--color-fs-border)] shadow-sm flex flex-col justify-between h-32">
+          <p className="text-xs font-bold text-[var(--color-fs-text-secondary)] uppercase flex items-center">
+            <FileText className="mr-2 opacity-50" size={14} /> Actas Estimadas
+          </p>
+          <p className="text-3xl font-bold text-[var(--color-secondary)] tracking-tighter">{totalRecords.toLocaleString()}</p>
+        </div>
+        <div className="bg-[var(--color-fs-bg)] p-6 rounded-2xl border border-[var(--color-fs-border)] shadow-sm flex flex-col justify-between h-32">
+          <p className="text-xs font-bold text-[var(--color-fs-text-secondary)] uppercase flex items-center">
+            <Globe className="mr-2 opacity-50" size={14} /> Países Activos
+          </p>
+          <p className="text-4xl font-bold text-[var(--color-primary)] tracking-tighter">{countryStats.length}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Country Breakdown */}
+        <div className="bg-[var(--color-fs-bg)] p-8 rounded-2xl border border-[var(--color-fs-border)] shadow-sm">
+          <h3 className="font-bold text-[var(--color-secondary)] mb-6 flex items-center">
+            <Globe className="mr-2 text-[var(--color-primary)]" size={20} />
+            Distribución por País
+          </h3>
+          <div className="space-y-4">
+            {countryStats.length > 0 ? countryStats.map((c, i) => (
+              <div key={i} className="flex items-center space-x-4">
+                <div className="w-24 text-sm font-bold text-[var(--color-fs-text-secondary)]">{c.name}</div>
+                <div className="flex-1 h-3 bg-[var(--color-fs-bg-alt)] rounded-full overflow-hidden">
+                  <div className="h-full bg-[var(--color-primary)] rounded-full" style={{ width: `${(c.count / filteredCemeteries.length) * 100}%` }}></div>
+                </div>
+                <div className="w-10 text-right text-xs font-black">{c.count}</div>
+              </div>
+            )) : (
+              <p className="text-sm text-[var(--color-fs-text-secondary)] italic">No hay datos para este periodo.</p>
+            )}
+          </div>
+        </div>
+
+        {/* Missionary Productivity */}
+        <div className="bg-[var(--color-fs-bg)] p-8 rounded-2xl border border-[var(--color-fs-border)] shadow-sm">
+          <h3 className="font-bold text-[var(--color-secondary)] mb-6 flex items-center">
+            <Users className="mr-2 text-[var(--color-primary)]" size={20} />
+            Top Productividad de Misioneros
+          </h3>
+          <div className="space-y-4">
+            {missionaryStats.length > 0 ? missionaryStats.map((m, i) => (
+              <div key={i} className="flex justify-between items-center p-3 bg-[var(--color-fs-bg-alt)] rounded-xl border border-[var(--color-fs-border)]">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 rounded-lg bg-[var(--color-primary-100)] text-[var(--color-primary-700)] flex items-center justify-center font-bold text-xs">
+                    {i + 1}
+                  </div>
+                  <span className="font-bold text-[var(--color-fs-text)] uppercase text-xs">{m.name}</span>
+                </div>
+                <span className="text-xs font-black text-[var(--color-primary)]">{m.count} contactos/visitas</span>
+              </div>
+            )) : (
+              <p className="text-sm text-[var(--color-fs-text-secondary)] italic">No hay registros de visitas encontrados.</p>
+            )}
+          </div>
+        </div>
+
+        {/* Visits per Project Index */}
+        <div className="lg:col-span-2 bg-[var(--color-fs-bg)] p-8 rounded-2xl border border-[var(--color-fs-border)] shadow-sm">
+          <h3 className="font-bold text-[var(--color-secondary)] mb-6 flex items-center">
+            <Activity className="mr-2 text-[var(--color-primary)]" size={20} />
+            Índice de Visitas por Proyecto (Top 10)
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="text-[var(--color-fs-text-secondary)] border-b border-[var(--color-fs-border)]">
+                  <th className="pb-3 px-2 font-bold uppercase text-[10px]">Cementerio</th>
+                  <th className="pb-3 px-2 font-bold uppercase text-[10px]">País</th>
+                  <th className="pb-3 px-2 font-bold uppercase text-[10px]">Etapa</th>
+                  <th className="pb-3 px-2 font-bold uppercase text-[10px] text-center">Visitas/Contactos</th>
+                  <th className="pb-3 px-2 font-bold uppercase text-[10px] text-right">Evolución</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredCemeteries
+                  .sort((a: any, b: any) => (b.visits?.length || 0) - (a.visits?.length || 0))
+                  .slice(0, 10)
+                  .map((cem: any, i) => (
+                  <tr key={i} className="border-b border-[var(--color-fs-border)] hover:bg-[var(--color-fs-bg-alt)] transition-colors">
+                    <td className="py-4 px-2 font-bold text-[var(--color-secondary)]">{cem.name}</td>
+                    <td className="py-4 px-2">{cem.country}</td>
+                    <td className="py-4 px-2">
+                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: stages[cem.stage].color }}>
+                         E{cem.stage}
+                       </span>
+                    </td>
+                    <td className="py-4 px-2 text-center text-lg font-black text-[var(--color-primary)]">{cem.visits?.length || 0}</td>
+                    <td className="py-4 px-2 text-right">
+                      <div className="w-24 h-2 bg-[var(--color-fs-bg-alt)] rounded-full inline-block overflow-hidden">
+                         <div className="h-full bg-[var(--color-primary)]" style={{ width: `${Math.min((cem.stage / 5) * 100, 100)}%` }}></div>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-8 pt-8 border-t border-[var(--color-fs-border)] text-center text-xs text-[var(--color-fs-text-secondary)] hidden print:block">
+        Reporte Oficial OC Oportunidades Cementerios - Generado el {new Date().toLocaleDateString()}
+      </div>
+    </div>
+  );
+};
