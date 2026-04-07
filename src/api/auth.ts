@@ -38,3 +38,11 @@ export const onAuthStateChange = (callback: (session: any) => void) => {
   });
   return subscription;
 };
+
+export const updateMetadata = async (metadata: any) => {
+  const { data, error } = await supabase.auth.updateUser({
+    data: metadata
+  });
+  if (error) throw error;
+  return data;
+};

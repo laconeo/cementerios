@@ -10,7 +10,7 @@ import {
   Map, List, Users, LogOut, MapPin, CheckCircle, 
   ChevronRight, Search, Filter, Plus, FileText, 
   Calendar, Activity, Camera, HeartHandshake,
-  Globe, Shield, Database, ArrowRight, Printer, AlertCircle, Save
+  Globe, Shield, Database, ArrowRight, Printer, AlertCircle, Save, Info
 } from 'lucide-react';
 import { NewCemeteryScreen } from './components/NewCemeteryScreen';
 
@@ -35,6 +35,20 @@ const COUNTRY_DATA = [
   { name: "Colombia", prefix: "+57" },
   { name: "Ecuador", prefix: "+593" },
 ];
+
+const COUNTRIES_DATA: any = {
+  "Argentina": ["Buenos Aires", "Catamarca", "Chaco", "Chubut", "Córdoba", "Corrientes", "Entre Ríos", "Formosa", "Jujuy", "La Pampa", "La Rioja", "Mendoza", "Misiones", "Neuquén", "Río Negro", "Salta", "San Juan", "San Luis", "Santa Cruz", "Santa Fe", "Santiago del Estero", "Tierra del Fuego", "Tucumán"],
+  "Chile": ["Arica y Parinacota", "Tarapacá", "Antofagasta", "Atacama", "Coquimbo", "Valparaíso", "Metropolitana de Santiago", "O'Higgins", "Maule", "Ñuble", "Biobío", "Araucanía", "Los Ríos", "Los Lagos", "Aysén", "Magallanes"],
+  "Uruguay": ["Artigas", "Canelones", "Cerro Largo", "Colonia", "Durazno", "Flores", "Florida", "Lavalleja", "Maldonado", "Montevideo", "Paysandú", "Río Negro", "Rivera", "Rocha", "Salto", "San José", "Soriano", "Tacuarembó", "Treinta y Tres"],
+  "Paraguay": ["Asunción", "Concepción", "San Pedro", "Cordillera", "Guairá", "Caaguazú", "Caazapá", "Itapúa", "Misiones", "Paraguarí", "Alto Paraná", "Central", "Ñeembucú", "Amambay", "Canindeyú", "Presidente Hayes", "Boquerón", "Alto Paraguay"],
+  "Bolivia": ["Beni", "Chuquisaca", "Cochabamba", "La Paz", "Oruro", "Pando", "Potosí", "Santa Cruz", "Tarija"],
+  "Perú": ["Amazonas", "Ancash", "Apurímac", "Arequipa", "Ayacucho", "Cajamarca", "Callao", "Cusco", "Huancavelica", "Huánuco", "Ica", "Junín", "La Libertad", "Lambayeque", "Lima", "Loreto", "Madre de Dios", "Moquegua", "Pasco", "Piura", "Puno", "San Martín", "Tacna", "Tumbes", "Ucayali"],
+  "Brasil": ["Acre", "Alagoas", "Amapá", "Amazonas", "Bahia", "Ceará", "Distrito Federal", "Espírito Santo", "Goiás", "Maranhão", "Mato Grosso", "Mato Grosso do Sul", "Minas Gerais", "Pará", "Paraíba", "Paraná", "Pernambuco", "Piauí", "Rio de Janeiro", "Rio Grande do Norte", "Rio Grande do Sul", "Rondônia", "Roraima", "Santa Catarina", "São Paulo", "Sergipe", "Tocantins"],
+  "Colombia": ["Amazonas", "Antioquia", "Arauca", "Atlántico", "Bolívar", "Boyacá", "Caldas", "Caquetá", "Casanare", "Cauca", "Cesar", "Chocó", "Córdoba", "Cundinamarca", "Guainía", "Guaviare", "Huila", "La Guajira", "Magdalena", "Meta", "Nariño", "Norte de Santander", "Putumayo", "Quindío", "Risaralda", "San Andrés", "Santander", "Sucre", "Tolima", "Valle del Cauca", "Vaupés", "Vichada"],
+  "Ecuador": ["Azuay", "Bolívar", "Cañar", "Carchi", "Chimborazo", "Cotopaxi", "El Oro", "Esmeraldas", "Galápagos", "Guayas", "Imbabura", "Loja", "Los Ríos", "Manabí", "Morona Santiago", "Napo", "Orellana", "Pastaza", "Pichincha", "Santa Elena", "Santo Domingo", "Sucumbíos", "Tungurahua", "Zamora Chinchipe"],
+  "México": ["Aguascalientes", "Baja California", "Baja California Sur", "Campeche", "Chiapas", "Chihuahua", "Coahuila", "Colima", "Durazno", "Estado de México", "Guanajuato", "Guerrero", "Hidalgo", "Jalisco", "Michoacán", "Morelos", "Nayarit", "Nuevo León", "Oaxaca", "Puebla", "Querétaro", "Quintana Roo", "San Luis Potosí", "Sinaloa", "Sonora", "Tabasco", "Tamaulipas", "Tlaxcala", "Veracruz", "Yucatán", "Zacatecas", "CDMX"],
+  "España": ["Andalucía", "Aragón", "Asturias", "Baleares", "Canarias", "Cantabria", "Castilla y León", "Castilla-La Mancha", "Cataluña", "Extremadura", "Galicia", "Madrid", "Murcia", "Navarra", "País Vasco", "La Rioja", "Valencia"],
+};
 
 /**
  * Formatea una fecha de YYYY-MM-DD o ISO a DD/MM/YYYY
@@ -236,7 +250,7 @@ const LoginScreen = ({ onLogin, onRegister }: { onLogin: (e: string, p: string) 
               OC Oportunidades Cementerios
             </h1>
             <p className="text-sm text-center text-[var(--color-fs-text-secondary)] mb-8 leading-relaxed">
-              Sistema de apoyo al voluntario/misionero para digitalización de cementerios
+              Sistema de apoyo al voluntario para digitalización de cementerios
             </p>
 
             {error && (
@@ -358,7 +372,7 @@ const LoginScreen = ({ onLogin, onRegister }: { onLogin: (e: string, p: string) 
         {view === 'register' && (
           <div className="animate-fade-in">
             <h1 className="text-2xl font-semibold text-center text-[var(--color-fs-text)] mb-4 tracking-tight">
-              Registro de Misionero/Voluntario
+              Registro de Voluntario
             </h1>
             
             {regSuccess ? (
@@ -453,10 +467,10 @@ const LoginScreen = ({ onLogin, onRegister }: { onLogin: (e: string, p: string) 
         {view !== 'register' && (
           <button 
             onClick={() => setView('register')}
-            className="hover:underline transition-colors opacity-70 hover:opacity-100"
-            style={{ fontSize: '10px', color: 'var(--color-fs-text-secondary)', marginTop: '4px' }}
+            className="hover:underline transition-colors opacity-80 hover:opacity-100 font-bold tracking-tight"
+            style={{ fontSize: '13px', color: 'var(--color-primary)', marginTop: '8px' }}
           >
-            Acceso misioneros de servicio
+            Regístrate como voluntario
           </button>
         )}
       </footer>
@@ -467,7 +481,9 @@ const LoginScreen = ({ onLogin, onRegister }: { onLogin: (e: string, p: string) 
   );
 };
 
-const Layout = ({ children, currentView, setCurrentView, onLogout }: any) => {
+const Layout = ({ children, currentView, setCurrentView, onLogout, session }: any) => {
+  const userInitial = session?.user?.user_metadata?.name?.charAt(0) || session?.user?.email?.charAt(0) || 'U';
+  const userName = session?.user?.user_metadata?.name || session?.user?.email || 'Usuario';
   return (
     <div className="min-h-screen flex flex-col bg-[var(--color-fs-bg-alt)] font-sans print:min-h-0 print:h-auto print:block print:bg-white">
       {/* Top Navbar */}
@@ -499,7 +515,7 @@ const Layout = ({ children, currentView, setCurrentView, onLogout }: any) => {
                   onClick={() => setCurrentView('missionaries')}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${currentView === 'missionaries' ? 'bg-[var(--color-primary-50)] text-[var(--color-primary-700)]' : 'text-[var(--color-fs-text-secondary)] hover:bg-[var(--color-fs-bg-alt)] hover:text-[var(--color-primary)]'}`}
                 >
-                  Misioneros
+                  Voluntarios
                 </button>
                 <button 
                   onClick={() => setCurrentView('reports')}
@@ -510,15 +526,22 @@ const Layout = ({ children, currentView, setCurrentView, onLogout }: any) => {
               </div>
             </div>
 
-            <div className="flex items-center space-x-4">
-              <div className="hidden sm:flex items-center space-x-2 text-sm">
-                <div className="w-8 h-8 rounded-full bg-[var(--color-primary-100)] text-[var(--color-primary-800)] flex items-center justify-center font-bold border border-[var(--color-primary-50)]">
-                  A
+            <div className="flex items-center space-x-2">
+              <button 
+                onClick={() => setCurrentView('profile')}
+                className={`flex items-center space-x-2 p-1.5 rounded-xl transition-all ${currentView === 'profile' ? 'bg-[var(--color-primary-50)] ring-1 ring-[var(--color-primary-200)]' : 'hover:bg-[var(--color-fs-bg-alt)]'}`}
+              >
+                <div className="w-8 h-8 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center font-bold shadow-sm border border-white/20">
+                  {userInitial}
                 </div>
-                <span className="font-medium text-[var(--color-fs-text-secondary)]">Admin User</span>
-              </div>
-              <button onClick={onLogout} className="p-2 text-[var(--color-fs-text-secondary)] hover:bg-[var(--color-fs-bg-alt)] hover:text-[var(--color-secondary)] rounded-full transition-colors" title="Cerrar Sesión">
-                <LogOut size={20} />
+                <div className="hidden sm:flex flex-col items-start leading-tight">
+                  <span className="text-xs font-bold text-[var(--color-secondary)]">{userName}</span>
+                  <span className="text-[10px] text-[var(--color-fs-text-secondary)] font-medium">Mi Perfil</span>
+                </div>
+              </button>
+              <div className="h-6 w-px bg-[var(--color-fs-border)] mx-1"></div>
+              <button onClick={onLogout} className="p-2 text-[var(--color-fs-text-secondary)] hover:bg-red-50 hover:text-red-600 rounded-full transition-colors group" title="Cerrar Sesión">
+                <LogOut size={20} className="group-hover:rotate-12 transition-transform" />
               </button>
             </div>
           </div>
@@ -613,15 +636,37 @@ const DashboardScreen = ({ onNavigateToList, onOpenDetail, cemeteries, missionar
                   icon={getCustomIcon(stages[cem.stage].color)}
                 >
                   <Popup>
-                    <div className="text-center p-1 font-sans">
-                      <h4 className="font-bold text-[var(--color-fs-text)] mb-1">{cem.name}</h4>
-                      <p className="text-xs text-[var(--color-fs-text-secondary)] mb-1">Imágenes: {cem.inventory}</p>
-                      <p className="text-xs text-[var(--color-fs-text-secondary)] mb-3">Etapa: {stages[cem.stage].name} (E{cem.stage})</p>
+                    <div className="p-1 font-sans min-w-[180px]">
+                      <h4 className="font-bold text-[var(--color-secondary)] mb-2 border-b border-[var(--color-fs-border)] pb-1">{cem.name}</h4>
+                      <div className="space-y-1.5 mb-4">
+                        <p className="text-xs text-[var(--color-fs-text-secondary)] flex justify-between">
+                          <span>Actas estimadas:</span>
+                          <span className="font-bold text-[var(--color-fs-text)]">{cem.estimatedRecords || '---'}</span>
+                        </p>
+                        <p className="text-xs text-[var(--color-fs-text-secondary)] flex justify-between">
+                          <span>Total contactos:</span>
+                          <span className="font-bold text-[var(--color-fs-text)]">{(cem.visits || []).length}</span>
+                        </p>
+                        <p className="text-xs text-[var(--color-fs-text-secondary)] flex justify-between">
+                          <span>Último contacto:</span>
+                          <span className="font-bold text-[var(--color-fs-text)] text-[10px]">
+                            {cem.visits && cem.visits.length > 0 
+                              ? formatDisplayDate([...cem.visits].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0].date)
+                              : 'Ninguno'}
+                          </span>
+                        </p>
+                        <p className="text-xs text-[var(--color-fs-text-secondary)] flex justify-between">
+                          <span>Etapa:</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold text-white shadow-sm" style={{ backgroundColor: stages[cem.stage].color }}>
+                            E{cem.stage}
+                          </span>
+                        </p>
+                      </div>
                       <button 
                         onClick={() => onOpenDetail(cem.id)}
-                        className="bg-[var(--color-primary)] text-white text-xs px-3 py-1.5 rounded-md hover:bg-[var(--color-primary-hover)] transition-colors w-full font-medium"
+                        className="bg-[var(--color-primary)] text-white text-xs px-3 py-2 rounded-lg hover:bg-[var(--color-primary-hover)] transition-colors w-full font-bold shadow-sm"
                       >
-                        Ver Detalles
+                        Ver Gestión Completa
                       </button>
                     </div>
                   </Popup>
@@ -666,12 +711,12 @@ const MissionaryListScreen = ({ missionaries, cemeteries, onNewMissionary, onOpe
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <h2 className="text-3xl font-bold text-[var(--color-secondary)]">Gestión de Misioneros</h2>
+        <h2 className="text-3xl font-bold text-[var(--color-secondary)]">Gestión de Voluntarios</h2>
         <button 
           onClick={onNewMissionary}
           className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white px-4 py-2 rounded-lg font-bold transition-colors shadow-sm"
         >
-          + Alta de Misionero
+          + Alta de Voluntario
         </button>
       </div>
 
@@ -682,7 +727,7 @@ const MissionaryListScreen = ({ missionaries, cemeteries, onNewMissionary, onOpe
             <Globe size={24} />
           </div>
           <div>
-            <p className="text-sm font-medium text-[var(--color-fs-text-secondary)]">Misioneros Activos</p>
+            <p className="text-sm font-bold text-[var(--color-fs-text-secondary)]">Voluntarios Activos</p>
             <p className="text-2xl font-bold text-[var(--color-secondary)]">{activeMissionaries}</p>
           </div>
         </div>
@@ -823,14 +868,18 @@ const MissionaryListScreen = ({ missionaries, cemeteries, onNewMissionary, onOpe
 const CemeteryListScreen = ({ onOpenDetail, onNewCemetery, initialFilterStage, cemeteries }: any) => {
   const [filterStage, setFilterStage] = useState<string>(initialFilterStage !== null && initialFilterStage !== undefined ? initialFilterStage.toString() : 'all');
 
-  const filteredCemeteries = filterStage === 'all' 
-    ? cemeteries 
-    : cemeteries.filter((c: any) => c.stage.toString() === filterStage);
+  const filteredCemeteries = cemeteries.filter((c: any) => {
+    if (filterStage === 'all') return true;
+    if (filterStage === 'stage3Waiting') return c.stage === 3 && !c.managerNotifiedDate;
+    return c.stage.toString() === filterStage;
+  });
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <h2 className="text-3xl font-bold text-[var(--color-secondary)]">Directorio de Cementerios</h2>
+        <h2 className="text-3xl font-bold text-[var(--color-secondary)]">
+          {filterStage === 'stage3Waiting' ? 'Cementerios: Espera Contacto FS' : 'Directorio de Cementerios'}
+        </h2>
         <button onClick={onNewCemetery} className="btn-primary flex items-center space-x-2">
           <Plus size={18} />
           <span>Nuevo Cementerio</span>
@@ -850,6 +899,7 @@ const CemeteryListScreen = ({ onOpenDetail, onNewCemetery, initialFilterStage, c
               onChange={(e) => setFilterStage(e.target.value)}
             >
               <option value="all">Todas las Etapas</option>
+              <option value="stage3Waiting">E3: Espera Contacto FS</option>
               {stages.map(s => (
                 <option key={s.id} value={s.id}>{s.id} - {s.name}</option>
               ))}
@@ -892,7 +942,7 @@ const CemeteryListScreen = ({ onOpenDetail, onNewCemetery, initialFilterStage, c
                   <span className="font-medium text-[var(--color-fs-text)]">{cem.lastContactDate}</span>
                 </div>
                 <div className="col-span-2 mt-1">
-                  <span className="block text-xs text-[var(--color-fs-text-secondary)]">Misionero</span>
+                  <span className="block text-xs text-[var(--color-fs-text-secondary)]">Voluntario</span>
                   <span className="font-medium text-[var(--color-fs-text)]">{cem.missionary}</span>
                 </div>
               </div>
@@ -919,7 +969,7 @@ const CemeteryListScreen = ({ onOpenDetail, onNewCemetery, initialFilterStage, c
                 <th className="p-5 font-semibold whitespace-nowrap">Etapa Actual</th>
                 <th className="p-5 font-semibold whitespace-nowrap">Fecha Ingreso</th>
                 <th className="p-5 font-semibold whitespace-nowrap">Último Contacto</th>
-                <th className="p-5 font-semibold">Misionero</th>
+                <th className="p-5 font-semibold">Voluntario</th>
                 <th className="p-5 font-semibold text-right whitespace-nowrap">Acciones</th>
               </tr>
             </thead>
@@ -1001,7 +1051,7 @@ const NewMissionaryScreen = ({ onSave, onCancel }: any) => {
         <button onClick={onCancel} className="p-2 hover:bg-[var(--color-fs-bg-alt)] rounded-full transition-colors">
           <ArrowRight className="rotate-180" />
         </button>
-        <h2 className="text-3xl font-bold text-[var(--color-secondary)]">Alta de Misionero</h2>
+        <h2 className="text-3xl font-bold text-[var(--color-secondary)]">Alta de Voluntario</h2>
       </div>
 
       <form onSubmit={handleSubmit} className="bg-[var(--color-fs-bg)] p-8 rounded-2xl shadow-sm border border-[var(--color-fs-border)] space-y-6">
@@ -1077,7 +1127,7 @@ const NewMissionaryScreen = ({ onSave, onCancel }: any) => {
             Cancelar
           </button>
           <button type="submit" className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white px-6 py-2 rounded-lg font-bold transition-colors">
-            Guardar Misionero
+            Guardar Voluntario
           </button>
         </div>
       </form>
@@ -1136,12 +1186,12 @@ const MissionaryDetailScreen = ({ id, onBack, missionaries, cemeteries, onAssign
         <div className="w-8 h-8 rounded-full bg-[var(--color-fs-bg)] shadow-sm flex items-center justify-center border border-[var(--color-fs-border)]">
           <ChevronRight className="transform rotate-180" size={18} />
         </div>
-        <span>Volver a Misioneros</span>
+        <span>Volver a Voluntarios</span>
       </button>
 
       <div className="bg-[var(--color-fs-bg)] rounded-[var(--radius-fs)] shadow-[var(--shadow-card)] overflow-hidden border border-[var(--color-fs-border)] p-8">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-3xl font-bold text-[var(--color-secondary)]">Detalles del Misionero</h2>
+          <h2 className="text-3xl font-bold text-[var(--color-secondary)]">Detalles del Voluntario</h2>
           {!isEditing ? (
             <button 
               onClick={() => setIsEditing(true)}
@@ -1605,7 +1655,7 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
 
   const handleAddVisit = () => {
     if (!newVisit.date) return showToast('La fecha es obligatoria', 'error');
-    if (!newVisit.missionary) return showToast('El misionero es obligatorio', 'error');
+    if (!newVisit.missionary) return showToast('El voluntario es obligatorio', 'error');
     if (!newVisit.contact) return showToast('El contacto es obligatorio', 'error');
     
     setLoadingVisit(true);
@@ -1686,7 +1736,7 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold mb-1 text-[var(--color-fs-text)]">Misionero *</label>
+              <label className="block text-xs font-bold mb-1 text-[var(--color-fs-text)]">Voluntario *</label>
               <input type="text" placeholder="Ej. Juan Pérez" value={newVisit.missionary} onChange={e => setNewVisit({...newVisit, missionary: e.target.value})} className="w-full text-sm p-2 bg-[var(--color-fs-bg)] border-[var(--color-fs-border)]" />
             </div>
             <div>
@@ -1772,7 +1822,7 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
               </p>
             </div>
             <div className="text-left md:text-right bg-[var(--color-fs-bg)] p-4 rounded-xl border border-[var(--color-fs-border)] shadow-sm">
-              <p className="text-xs text-[var(--color-fs-text-secondary)] font-bold uppercase tracking-wider mb-1">Misionero Asignado</p>
+              <p className="text-xs text-[var(--color-fs-text-secondary)] font-bold uppercase tracking-wider mb-1">Voluntario Asignado</p>
               <select 
                 value={assignedMissionaryId}
                 onChange={(e) => {
@@ -1813,51 +1863,164 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
               </h3>
               <p className="text-[var(--color-fs-text-secondary)] mt-1">{stages[currentStage].desc}</p>
             </div>
-            {(currentStage < stages.length - 1 || currentStage === 5) && (
-              <button 
-                onClick={() => {
-                  if (currentStage === 4 && !isDigitizationConfirmed) {
-                    if (showToast) showToast('Debes confirmar que la digitalización ha finalizado antes de continuar', 'error');
-                    return;
-                  }
-                  if (currentStage === 5 && !stage5Data.processCompleted) {
-                    if (showToast) showToast('Debes marcar el proceso como finalizado para concluir el proyecto', 'error');
-                    return;
-                  }
-                  
-                  if (currentStage < stages.length - 1) {
-                    const nextStage = currentStage + 1;
-                    setCurrentStage(nextStage);
-                    if (onUpdateCemetery) onUpdateCemetery(cemetery.id, { stage: nextStage });
-                  } else {
-                    // Acción final para Etapa 5
-                    handleSaveStageData();
-                    if (showToast) showToast('¡Proyecto finalizado exitosamente!', 'success');
-                  }
-                }} 
-                className={`btn-primary shadow-md print:hidden ${(currentStage === 4 && !isDigitizationConfirmed) || (currentStage === 5 && !stage5Data.processCompleted) ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                {currentStage === 5 ? 'Finalizar Proyecto' : 'Completar Etapa'}
-              </button>
+            {/* Sólo mostramos el botón de avanzar etapa si estamos viendo la etapa REAL en la que está el cementerio */}
+            {currentStage === cemetery.stage && (
+              <>
+                {currentStage < 5 ? (
+                  <button 
+                    onClick={() => {
+                      if (currentStage === cemetery.stage) {
+                        onUpdateCemetery(cemetery.id, { stage: currentStage + 1 });
+                        setCurrentStage(currentStage + 1);
+                      }
+                    }}
+                    className="bg-[var(--color-primary)] text-white px-8 py-3 rounded-xl font-black shadow-lg hover:shadow-xl transition-all flex items-center space-x-2"
+                  >
+                    <span>Finalizar Etapa {currentStage}: Ir a la siguiente etapa</span>
+                    <ArrowRight size={20} />
+                  </button>
+                ) : (
+                  <button 
+                    onClick={() => {
+                      if (!stage5Data.processCompleted) {
+                        if (showToast) showToast('Debes marcar el proceso como finalizado para concluir el proyecto', 'error');
+                        return;
+                      }
+                      handleSaveStageData();
+                      if (showToast) showToast('¡Proyecto finalizado exitosamente!', 'success');
+                    }}
+                    className={`bg-[var(--color-fs-green)] text-white px-8 py-3 rounded-xl font-black shadow-lg hover:shadow-xl transition-all flex items-center space-x-2 ${!stage5Data.processCompleted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <span>Concluir Proyecto Final</span>
+                    <CheckCircle size={20} />
+                  </button>
+                )}
+              </>
+            )}
+            {/* Si estamos viendo una etapa anterior, avisamos que es modo lectura o edición de datos previos */}
+            {currentStage < cemetery.stage && (
+               <div className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-6 py-3 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-bold flex items-center">
+                  <Shield className="mr-2" size={18} />
+                  Etapa ya superada - Modo Historial
+               </div>
+            )}
+            {/* Si estamos viendo una etapa futura, avisamos que no hemos llegado allí */}
+            {currentStage > cemetery.stage && (
+               <div className="bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-200 px-6 py-3 rounded-xl border border-amber-200 dark:border-amber-800 text-sm font-bold flex items-center italic">
+                  <Activity className="mr-2" size={18} />
+                  Etapa no iniciada - Previsualización
+               </div>
             )}
           </div>
 
           <div className="bg-[var(--color-fs-bg)] p-8 rounded-2xl border border-[var(--color-fs-border)] shadow-sm">
             {currentStage === 0 && (
-              <div className="space-y-6">
-                <div className="bg-[var(--color-primary-50)] text-[var(--color-primary-800)] p-4 rounded-xl border border-[var(--color-primary-100)] flex items-start space-x-3">
+              <div className="space-y-8 animate-fade-in">
+                <div className="bg-[var(--color-primary-50)] text-[var(--color-primary-800)] p-4 rounded-xl border border-[var(--color-primary-100)] flex items-start space-x-3 mb-6">
                   <MapPin className="flex-shrink-0 mt-0.5" size={20} />
-                  <p className="text-sm font-medium">El cementerio ha sido relevado y geolocalizado. Inicie el contacto para avanzar a la Etapa 1.</p>
+                  <div>
+                    <p className="text-sm font-bold">Modo de Edición de Relevamiento (E0)</p>
+                    <p className="text-xs mt-1">El cementerio ha sido relevado. Aquí puede ajustar los datos base y la ubicación exacta antes de avanzar a la etapa de contacto.</p>
+                  </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Tipo de Administración</label>
-                    <select disabled className="bg-[var(--color-fs-bg-alt)] text-[var(--color-fs-text-secondary)]"><option>Municipal</option></select>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Nombre del Cementerio</label>
+                        <input 
+                          type="text" 
+                          value={stage1Data.contactName || cemetery.name} 
+                          onChange={e => onUpdateCemetery(cemetery.id, { name: e.target.value })}
+                          className="w-full bg-[var(--color-fs-bg)] border-[var(--color-fs-border)]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Tipo de Administración</label>
+                        <select 
+                          value={cemetery.adminType || 'Municipal'} 
+                          onChange={e => onUpdateCemetery(cemetery.id, { adminType: e.target.value })}
+                          className="w-full bg-[var(--color-fs-bg)] border-[var(--color-fs-border)]"
+                        >
+                          <option value="Municipal">Municipal</option>
+                          <option value="Privado">Privado</option>
+                          <option value="Religioso">Religioso</option>
+                          <option value="Mixto">Mixto</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">País</label>
+                        <select 
+                          value={cemetery.country || ''} 
+                          onChange={e => onUpdateCemetery(cemetery.id, { country: e.target.value, province: '', city: '' })}
+                          className="w-full bg-[var(--color-fs-bg)] border-[var(--color-fs-border)]"
+                        >
+                          <option value="">Seleccionar País</option>
+                          {/* Asumiendo que tenemos acceso a COUNTRY_DATA o similar */}
+                          {Object.keys(COUNTRIES_DATA).sort().map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Provincia / Estado</label>
+                        <input 
+                          type="text" 
+                          value={cemetery.province || ''} 
+                          onChange={e => onUpdateCemetery(cemetery.id, { province: e.target.value })}
+                          className="w-full bg-[var(--color-fs-bg)] border-[var(--color-fs-border)]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Ciudad</label>
+                        <input 
+                          type="text" 
+                          value={cemetery.city || ''} 
+                          onChange={e => onUpdateCemetery(cemetery.id, { city: e.target.value })}
+                          className="w-full bg-[var(--color-fs-bg)] border-[var(--color-fs-border)]"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Notas Generales</label>
-                    <textarea disabled rows={3} className="bg-[var(--color-fs-bg-alt)] text-[var(--color-fs-text-secondary)]" value="Cementerio principal de la ciudad."></textarea>
+
+                  <div className="bg-[var(--color-fs-bg-alt)] rounded-xl border border-[var(--color-fs-border)] overflow-hidden h-[350px] shadow-sm relative">
+                    <div className="absolute top-4 left-4 z-[1001] bg-white/90 backdrop-blur p-2 rounded-lg shadow-md border border-[var(--color-fs-border)] text-[10px] font-bold">
+                       LAT: {cemetery.lat?.toFixed(6)} | LNG: {cemetery.lng?.toFixed(6)}
+                    </div>
+                    <MapContainer 
+                      center={[cemetery.lat || -34, cemetery.lng || -58]} 
+                      zoom={15} 
+                      className="h-full w-full"
+                    >
+                      <TileLayer
+                        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                        attribution='&copy; OpenStreetMap'
+                      />
+                      <Marker 
+                        position={[cemetery.lat || -34, cemetery.lng || -58]} 
+                        draggable={true}
+                        eventHandlers={{
+                          dragend(e) {
+                            const marker = e.target;
+                            const position = marker.getLatLng();
+                            onUpdateCemetery(cemetery.id, { lat: position.lat, lng: position.lng });
+                          }
+                        }}
+                      />
+                    </MapContainer>
                   </div>
+                </div>
+
+                <div className="pt-6 border-t border-[var(--color-fs-border)] flex justify-end">
+                   <button 
+                    onClick={() => {
+                        handleSaveStageData();
+                        if (showToast) showToast('Datos de relevamiento actualizados');
+                    }} 
+                    className="btn-primary py-3 px-8 text-sm flex items-center space-x-2 shadow-lg"
+                   >
+                     <Save size={18} />
+                     <span>Guardar Cambios de Relevamiento</span>
+                   </button>
                 </div>
               </div>
             )}
@@ -1948,7 +2111,7 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
                       <span className="font-bold text-[var(--color-fs-text)]">FamilySearch ya ha digitalizado esto previamente</span>
                     </label>
                     {fsAlreadyDigitized && (
-                      <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 dark:bg-yellow-900/30 dark:border-yellow-800 dark:text-yellow-200 p-3 rounded-lg flex items-start space-x-2 mt-3">
+                      <div className="bg-[#E0F2FE] border border-[#BAE6FD] text-[#0369A1] dark:bg-[#0C4A6E] dark:border-[#0284C7] dark:text-[#E0F2FE] p-3 rounded-lg flex items-start space-x-3 mt-3 shadow-sm">
                         <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
                         <p className="text-sm font-medium">Esta información debe ser verificada con algún responsable de registros de FamilySearch.</p>
                       </div>
@@ -2017,7 +2180,7 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
               <div className="space-y-6">
                 {/* Alert and Button Section (UI Only) */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
-                  <div className="bg-purple-50 border border-purple-200 text-purple-800 dark:bg-purple-900/30 dark:border-purple-800 dark:text-purple-200 p-4 rounded-xl flex items-start space-x-3 flex-1">
+                  <div className="bg-[#E0F2FE] border border-[#BAE6FD] text-[#0369A1] dark:bg-[#0C4A6E] dark:border-[#0284C7] dark:text-[#E0F2FE] p-4 rounded-xl flex items-start space-x-3 flex-1 shadow-sm">
                     <AlertCircle className="flex-shrink-0 mt-0.5" size={20} />
                     <p className="text-sm font-medium leading-tight">Revise el resumen completo y genere el <b>PDF Ejecutivo</b> para enviar a Gerencia. Este documento consolida todas las etapas previas.</p>
                   </div>
@@ -2109,7 +2272,7 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
                   <div className="mt-12 break-before-page">
                     <div className="border-b-2 border-black pb-2 mb-6">
                       <h3 className="text-lg font-black uppercase text-black">Apéndice: Bitácora de Gestiones</h3>
-                      <p className="text-xs text-gray-500">Historial de acercamiento y contactos realizados por el equipo de misioneros</p>
+                      <p className="text-xs text-gray-500">Historial de acercamiento y contactos realizados por el equipo de voluntarios</p>
                     </div>
                     {renderVisitLog()}
                   </div>
@@ -2240,6 +2403,84 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
   );
 }
 
+const ProfileScreen = ({ session, cemeteries, missionaries, onUpdateProfile }: any) => {
+  const volunteer = missionaries.find((m: any) => m.email === session?.user?.email);
+  const workingCount = cemeteries.filter((c: any) => c.missionaryId === volunteer?.id).length;
+  
+  const [name, setName] = useState(session?.user?.user_metadata?.name || '');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: any) => {
+    e.preventDefault();
+    setLoading(true);
+    await onUpdateProfile({ name });
+    setLoading(false);
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-8 animate-fade-in">
+      <div className="flex items-center space-x-4">
+        <h2 className="text-3xl font-bold text-[var(--color-secondary)]">Mi Perfil de Voluntario</h2>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-1 bg-[var(--color-fs-bg)] p-6 rounded-2xl border border-[var(--color-fs-border)] shadow-sm flex flex-col items-center justify-center text-center">
+           <div className="w-20 h-20 rounded-full bg-[var(--color-primary-100)] text-[var(--color-primary-700)] flex items-center justify-center text-3xl font-bold mb-4 border-4 border-white shadow-md">
+             {name.charAt(0) || '?'}
+           </div>
+           <p className="font-bold text-[var(--color-secondary)]">{name}</p>
+           <p className="text-xs text-[var(--color-fs-text-secondary)] truncate w-full">{session?.user?.email}</p>
+           
+           <div className="mt-6 pt-6 border-t border-[var(--color-fs-border)] w-full">
+              <p className="text-2xl font-black text-[var(--color-primary)]">{workingCount}</p>
+              <p className="text-[10px] font-bold text-[var(--color-fs-text-secondary)] uppercase tracking-widest">Proyectos Activos</p>
+           </div>
+        </div>
+
+        <div className="md:col-span-2 space-y-6">
+          <form onSubmit={handleSubmit} className="bg-[var(--color-fs-bg)] p-8 rounded-2xl shadow-sm border border-[var(--color-fs-border)] space-y-6">
+            <div>
+              <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text)]">Nombre y Apellido</label>
+              <input 
+                type="text" 
+                value={name}
+                onChange={e => setName(e.target.value)}
+                className="w-full bg-[var(--color-fs-bg)] text-[var(--color-fs-text)] border-[var(--color-fs-border)]"
+                placeholder="Tu nombre completo"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold mb-2 text-[var(--color-fs-text-secondary)] opacity-50">Correo Electrónico (No editable)</label>
+              <input 
+                type="email" 
+                disabled 
+                value={session?.user?.email}
+                className="w-full bg-[var(--color-fs-bg-alt)] text-[var(--color-fs-text-secondary)] border-[var(--color-fs-border)] cursor-not-allowed"
+              />
+            </div>
+            
+            <div className="pt-4">
+              <button 
+                type="submit" 
+                disabled={loading}
+                className="btn-primary w-full flex items-center justify-center space-x-2 shadow-lg"
+              >
+                {loading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save size={18} />}
+                <span>{loading ? 'Guardando...' : 'Guardar Cambios'}</span>
+              </button>
+            </div>
+          </form>
+          
+          <div className="bg-blue-50 border border-blue-200 text-blue-800 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-200 p-4 rounded-xl flex items-start space-x-3">
+             <Info className="flex-shrink-0 mt-0.5" size={20} />
+             <p className="text-sm font-medium">Esta información se utiliza para los reportes de productividad y la asignación de cementerios.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const [currentView, setCurrentView] = useState('login'); 
   const [session, setSession] = useState<any>(null);
@@ -2325,7 +2566,7 @@ export default function App() {
     await auth.signOut();
   };
 
-  const handleNavigateToList = (stageId: number | null = null) => {
+  const handleNavigateToList = (stageId: number | string | null = null) => {
     setFilterStage(stageId);
     setCurrentView('list');
   };
@@ -2380,7 +2621,12 @@ export default function App() {
 
   return (
     <>
-      <Layout currentView={currentView} setCurrentView={setCurrentView} onLogout={handleLogout}>
+      <Layout 
+        currentView={currentView} 
+        setCurrentView={setCurrentView} 
+        onLogout={handleLogout}
+        session={session}
+      >
         {currentView === 'dashboard' && (
           <DashboardScreen 
             cemeteries={cemeteries}
@@ -2416,6 +2662,30 @@ export default function App() {
                 .catch(err => showToast(err.message || 'Error al actualizar', 'error'));
             }}
             onBack={() => setCurrentView('list')} 
+          />
+        )}
+        {currentView === 'profile' && (
+          <ProfileScreen 
+            session={session}
+            cemeteries={cemeteries}
+            missionaries={missionaries}
+            onUpdateProfile={async (updates: any) => {
+              try {
+                // Actualizar en la tabla de voluntarios
+                const profile = missionaries.find(m => m.email === session.user.email);
+                if (profile) {
+                  await api.updateMissionary(profile.id, { name: updates.name });
+                }
+                
+                // Actualizar metadatos de auth
+                await auth.updateMetadata({ name: updates.name });
+                
+                showToast('Perfil actualizado correctamente');
+                loadData();
+              } catch (err: any) {
+                showToast('Error al actualizar perfil: ' + err.message, 'error');
+              }
+            }}
           />
         )}
         {currentView === 'new' && (
@@ -2505,7 +2775,12 @@ export default function App() {
           />
         )}
         {currentView === 'reports' && (
-          <ReportsScreen cemeteries={cemeteries} missionaries={missionaries} />
+          <ReportsScreen 
+            cemeteries={cemeteries} 
+            missionaries={missionaries} 
+            onNavigateToList={handleNavigateToList}
+            onOpenDetail={(id: string) => { setSelectedCemeteryId(id); setCurrentView('detail'); }}
+          />
         )}
       </Layout>
       <ThemeToggle />
@@ -2516,7 +2791,7 @@ export default function App() {
   );
 }
 
-const ReportsScreen = ({ cemeteries, missionaries }: any) => {
+const ReportsScreen = ({ cemeteries, missionaries, onNavigateToList, onOpenDetail }: any) => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
@@ -2545,7 +2820,7 @@ const ReportsScreen = ({ cemeteries, missionaries }: any) => {
     count: filteredCemeteries.filter((c: any) => c.country === country.name).length
   })).filter(c => c.count > 0);
 
-  // Rankings de Misioneros (Visitas totales)
+  // Rankings de Voluntarios (Visitas totales)
   const missionaryStats = missionaries.map((m: any) => {
     const visitsCount = filteredCemeteries.reduce((acc: number, c: any) => {
       const missionaryVisits = (c.visits || []).filter((v: any) => v.missionary === m.name);
@@ -2553,6 +2828,8 @@ const ReportsScreen = ({ cemeteries, missionaries }: any) => {
     }, 0);
     return { name: m.name, count: visitsCount };
   }).sort((a: any, b: any) => b.count - a.count).slice(0, 5);
+
+  const stage3WaitingFS = filteredCemeteries.filter((c: any) => c.stage === 3 && !c.managerNotifiedDate).length;
 
   return (
     <div className="space-y-8 animate-slide-up">
@@ -2578,7 +2855,7 @@ const ReportsScreen = ({ cemeteries, missionaries }: any) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
         <div className="bg-[var(--color-fs-bg)] p-6 rounded-2xl border border-[var(--color-fs-border)] shadow-sm flex flex-col justify-between h-32">
           <p className="text-xs font-bold text-[var(--color-fs-text-secondary)] uppercase flex items-center">
             <Database className="mr-2 opacity-50" size={14} /> Total Proyectos
@@ -2591,6 +2868,15 @@ const ReportsScreen = ({ cemeteries, missionaries }: any) => {
           </p>
           <p className="text-4xl font-bold text-[var(--color-fs-green)] tracking-tighter">{completed}</p>
         </div>
+        <button 
+          onClick={() => onNavigateToList('stage3Waiting')}
+          className="bg-[var(--color-fs-bg)] p-6 rounded-2xl border border-[var(--color-fs-border)] shadow-sm border-l-4 border-l-[var(--color-fs-purple)] flex flex-col justify-between h-32 hover:shadow-md hover:scale-[1.02] transition-all text-left group"
+        >
+          <p className="text-xs font-bold text-[var(--color-fs-text-secondary)] group-hover:text-[var(--color-fs-purple)] uppercase flex items-center transition-colors">
+            <Calendar className="mr-2 text-[var(--color-fs-purple)] opacity-50" size={14} /> E3: Espera Contacto FS
+          </p>
+          <p className="text-4xl font-bold text-[var(--color-fs-purple)] tracking-tighter">{stage3WaitingFS}</p>
+        </button>
         <div className="bg-[var(--color-fs-bg)] p-6 rounded-2xl border border-[var(--color-fs-border)] shadow-sm flex flex-col justify-between h-32">
           <p className="text-xs font-bold text-[var(--color-fs-text-secondary)] uppercase flex items-center">
             <FileText className="mr-2 opacity-50" size={14} /> Actas Estimadas
@@ -2602,6 +2888,33 @@ const ReportsScreen = ({ cemeteries, missionaries }: any) => {
             <Globe className="mr-2 opacity-50" size={14} /> Países Activos
           </p>
           <p className="text-4xl font-bold text-[var(--color-primary)] tracking-tighter">{countryStats.length}</p>
+        </div>
+      </div>
+
+      {/* Stage Breakdown */}
+      <div className="bg-[var(--color-fs-bg)] p-8 rounded-2xl border border-[var(--color-fs-border)] shadow-sm">
+        <h3 className="font-bold text-[var(--color-secondary)] mb-6 flex items-center">
+          <Activity className="mr-2 text-[var(--color-primary)]" size={20} />
+          Estado de Avance por Etapa (Proyectos Activos)
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {stageStats.map((s, i) => (
+            <div key={i} className="flex flex-col space-y-2">
+              <div className="flex justify-between items-end">
+                <span className="text-xs font-black text-[var(--color-fs-text-secondary)] uppercase">{s.name}</span>
+                <span className="text-lg font-bold text-[var(--color-secondary)]">{s.count}</span>
+              </div>
+              <div className="h-2 bg-[var(--color-fs-bg-alt)] rounded-full overflow-hidden">
+                <div 
+                  className="h-full rounded-full transition-all duration-1000" 
+                  style={{ 
+                    width: `${(s.count / (filteredCemeteries.length || 1)) * 100}%`,
+                    backgroundColor: s.color 
+                  }}
+                ></div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -2631,7 +2944,7 @@ const ReportsScreen = ({ cemeteries, missionaries }: any) => {
         <div className="bg-[var(--color-fs-bg)] p-8 rounded-2xl border border-[var(--color-fs-border)] shadow-sm">
           <h3 className="font-bold text-[var(--color-secondary)] mb-6 flex items-center">
             <Users className="mr-2 text-[var(--color-primary)]" size={20} />
-            Top Productividad de Misioneros
+            Top Productividad de Voluntarios
           </h3>
           <div className="space-y-4">
             {missionaryStats.length > 0 ? missionaryStats.map((m, i) => (
@@ -2672,8 +2985,12 @@ const ReportsScreen = ({ cemeteries, missionaries }: any) => {
                   .sort((a: any, b: any) => (b.visits?.length || 0) - (a.visits?.length || 0))
                   .slice(0, 10)
                   .map((cem: any, i) => (
-                  <tr key={i} className="border-b border-[var(--color-fs-border)] hover:bg-[var(--color-fs-bg-alt)] transition-colors">
-                    <td className="py-4 px-2 font-bold text-[var(--color-secondary)]">{cem.name}</td>
+                  <tr 
+                    key={i} 
+                    onClick={() => onOpenDetail(cem.id)}
+                    className="border-b border-[var(--color-fs-border)] hover:bg-[var(--color-primary-50)] cursor-pointer transition-colors group"
+                  >
+                    <td className="py-4 px-2 font-bold text-[var(--color-secondary)] group-hover:text-[var(--color-primary)] transition-colors">{cem.name}</td>
                     <td className="py-4 px-2">{cem.country}</td>
                     <td className="py-4 px-2">
                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: stages[cem.stage].color }}>
@@ -2682,8 +2999,8 @@ const ReportsScreen = ({ cemeteries, missionaries }: any) => {
                     </td>
                     <td className="py-4 px-2 text-center text-lg font-black text-[var(--color-primary)]">{cem.visits?.length || 0}</td>
                     <td className="py-4 px-2 text-right">
-                      <div className="w-24 h-2 bg-[var(--color-fs-bg-alt)] rounded-full inline-block overflow-hidden">
-                         <div className="h-full bg-[var(--color-primary)]" style={{ width: `${Math.min((cem.stage / 5) * 100, 100)}%` }}></div>
+                      <div className="w-24 h-2 bg-[var(--color-fs-bg-alt)] rounded-full inline-block overflow-hidden shadow-inner">
+                         <div className="h-full bg-[var(--color-primary)] rounded-full transition-all duration-500" style={{ width: `${Math.min((cem.stage / 5) * 100, 100)}%` }}></div>
                       </div>
                     </td>
                   </tr>
