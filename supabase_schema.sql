@@ -60,6 +60,8 @@ CREATE TABLE IF NOT EXISTS cemeteries (
     "postSaleNotes" TEXT,
     "processCompleted" BOOLEAN DEFAULT FALSE,
     address TEXT,
+    "estimatedMeetingDate" DATE,
+    "fsNotificationDate" DATE,
     "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

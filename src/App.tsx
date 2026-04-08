@@ -1440,6 +1440,8 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
   const [readyForVisitDate, setReadyForVisitDate] = useState(cemetery.readyForVisitDate || '');
   const [managerNotifiedDate, setManagerNotifiedDate] = useState(cemetery.managerNotifiedDate || '');
   const [managerNotifiedName, setManagerNotifiedName] = useState(cemetery.managerNotifiedName || '');
+  const [estimatedMeetingDate, setEstimatedMeetingDate] = useState(cemetery.estimatedMeetingDate || '');
+  const [fsNotificationDate, setFsNotificationDate] = useState(cemetery.fsNotificationDate || '');
   const [isDigitizationConfirmed, setIsDigitizationConfirmed] = useState(false);
 
   const handleGeneratePDF = async () => {
@@ -1467,7 +1469,7 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
       
       pdf.setFontSize(8);
       pdf.setTextColor(100, 100, 100);
-      pdf.text('DEPARTAMENTO DE RELACIONES INSTITUCIONALES (GRI)', 15, y + 5);
+      pdf.text('DEPARTAMENTO DE RELACIONES INSTITUCIONALES', 15, y + 5);
       
       pdf.setFontSize(8);
       pdf.setTextColor(150, 150, 150);
@@ -1546,9 +1548,9 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
       y += 12;
       pdf.setFont('helvetica', 'normal');
       pdf.text(`Responsable FS: ${managerNotifiedName || 'No definido'}`, 15, y);
-      pdf.text(`Disponibilidad: ${readyForVisitDate ? formatDisplayDate(readyForVisitDate) : '-'}`, 110, y);
+      pdf.text(`Notif. FamilySearch: ${fsNotificationDate ? formatDisplayDate(fsNotificationDate) : '-'}`, 110, y);
       y += 6;
-      pdf.text(`Notificación GRI: ${managerNotifiedDate ? formatDisplayDate(managerNotifiedDate) : '-'}`, 15, y);
+      pdf.text(`F. Est. Reunión: ${estimatedMeetingDate ? formatDisplayDate(estimatedMeetingDate) : '-'}`, 15, y);
       pdf.text(`Estado Misión: CITA INSTITUCIONAL PENDIENTE`, 110, y);
       
       y += 15;
@@ -1646,6 +1648,8 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
         readyForVisitDate: readyForVisitDate === '' ? null : readyForVisitDate,
         managerNotifiedDate: managerNotifiedDate === '' ? null : managerNotifiedDate,
         managerNotifiedName,
+        estimatedMeetingDate: estimatedMeetingDate === '' ? null : estimatedMeetingDate,
+        fsNotificationDate: fsNotificationDate === '' ? null : fsNotificationDate,
         ...cleanStage5Data, // Persistir datos de postventa saneados
         stage: currentStage // Sincronizar la etapa actual con la base de datos al guardar
       });
@@ -2182,7 +2186,7 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
                   <div className="bg-[#E0F2FE] border border-[#BAE6FD] text-[#0369A1] dark:bg-[#0C4A6E] dark:border-[#0284C7] dark:text-[#E0F2FE] p-4 rounded-xl flex items-start space-x-3 flex-1 shadow-sm">
                     <AlertCircle className="flex-shrink-0 mt-0.5" size={20} />
-                    <p className="text-sm font-medium leading-tight">Revise el resumen completo y genere el <b>PDF Ejecutivo</b> para enviar a Gerencia. Este documento consolida todas las etapas previas.</p>
+                    <p className="text-sm font-medium leading-tight">Complete los datos de planificación, revise el resumen y genere el <b>PDF Ejecutivo</b> para enviar a Gerencia.</p>
                   </div>
                   <button 
                     onClick={handleGeneratePDF} 
@@ -2193,13 +2197,57 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
                   </button>
                 </div>
 
+                {/* Planning Fields Form */}
+                <div className="bg-[var(--color-fs-bg-alt)] p-6 rounded-2xl border border-[var(--color-fs-border)] shadow-sm space-y-4 print:hidden">
+                  <h4 className="font-bold text-[var(--color-secondary)] flex items-center gap-2">
+                    <Calendar size={18} />
+                    Configuración de Planificación
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold mb-1 text-[var(--color-fs-text)] uppercase tracking-wider">Fecha Estimada de Reunión</label>
+                      <input 
+                        type="date" 
+                        value={estimatedMeetingDate} 
+                        onChange={e => setEstimatedMeetingDate(e.target.value)} 
+                        className="w-full text-sm p-2 bg-[var(--color-fs-bg)] border-[var(--color-fs-border)]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold mb-1 text-[var(--color-fs-text)] uppercase tracking-wider">Notificación a FamilySearch</label>
+                      <input 
+                        type="date" 
+                        value={fsNotificationDate} 
+                        onChange={e => setFsNotificationDate(e.target.value)} 
+                        className="w-full text-sm p-2 bg-[var(--color-fs-bg)] border-[var(--color-fs-border)]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold mb-1 text-[var(--color-fs-text)] uppercase tracking-wider">Responsable FS</label>
+                      <input 
+                        type="text" 
+                        placeholder="Nombre del responsable" 
+                        value={managerNotifiedName} 
+                        onChange={e => setManagerNotifiedName(e.target.value)} 
+                        className="w-full text-sm p-2 bg-[var(--color-fs-bg)] border-[var(--color-fs-border)]"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end pt-2">
+                    <button type="button" onClick={handleSaveStageData} className="btn-primary py-2 px-6 text-xs flex items-center space-x-2">
+                      <Save size={16} />
+                      <span>Guardar Datos de Planificación</span>
+                    </button>
+                  </div>
+                </div>
+
                 {/* THE DOCUMENT AREA (This is captured by jspdf) */}
                 <div ref={reportRef} className="bg-white p-8 md:p-12 rounded-none md:rounded-2xl border-none md:border border-[var(--color-fs-border)] shadow-none md:shadow-sm text-black">
                   {/* Institutional Header */}
                   <div className="flex justify-between items-start border-b-2 border-black pb-6 mb-8">
                     <div>
                       <h1 className="text-3xl font-black uppercase tracking-tighter text-black">FamilySearch</h1>
-                      <p className="text-sm font-bold text-gray-800">Departamento de Relaciones Institucionales (GRI)</p>
+                      <p className="text-sm font-bold text-gray-800">Departamento de Relaciones Institucionales</p>
                       <p className="text-xs text-gray-600 mt-1 uppercase tracking-widest font-medium">Informe Ejecutivo de Priorización de Proyectos</p>
                     </div>
                     <div className="text-right">
@@ -2254,12 +2302,12 @@ const CemeteryDetailScreen = ({ id, onBack, cemeteries, missionaries, onUpdateCe
                         <p className="font-bold text-gray-900 border-b border-gray-300 pb-1">{managerNotifiedName || 'No definido'}</p>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">Disponibilidad del Contacto</label>
-                        <p className="font-bold text-gray-900 border-b border-gray-300 pb-1">{formatDisplayDate(readyForVisitDate)}</p>
+                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">Notificación FamilySearch</label>
+                        <p className="font-bold text-gray-900 border-b border-gray-300 pb-1">{formatDisplayDate(fsNotificationDate)}</p>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">Fecha de Notificación GRI</label>
-                        <p className="font-bold text-gray-900 border-b border-gray-300 pb-1">{formatDisplayDate(managerNotifiedDate)}</p>
+                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">F. Estimada de Reunión</label>
+                        <p className="font-bold text-gray-900 border-b border-gray-300 pb-1">{formatDisplayDate(estimatedMeetingDate)}</p>
                       </div>
                       <div>
                         <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">Estado de la Misión</label>
